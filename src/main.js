@@ -49,9 +49,11 @@ let currentStage = 1;
 let potions      = parseInt(localStorage.getItem('dz_potions') || '0', 10);
 
 // ─── DOM 要素参照 ──────────────────────────────────────────
-const homeEl     = document.getElementById('screen-home');
-const shopEl     = document.getElementById('screen-shop');
-const opChoiceEl = document.getElementById('screen-op-choice');
+const homeEl      = document.getElementById('screen-home');
+const shopEl      = document.getElementById('screen-shop');
+const shopMenuEl  = document.getElementById('screen-shop-menu');
+const shopSkillEl = document.getElementById('screen-shop-skill');
+const opChoiceEl  = document.getElementById('screen-op-choice');
 
 // ─── コインシステム ────────────────────────────────────────
 function getCoins() {
@@ -69,9 +71,18 @@ function updateCoinDisplay() {
   const c = getCoins();
   const el  = document.getElementById('home-coin-display');
   const el2 = document.getElementById('shop-coin-display');
+  const el3 = document.getElementById('shopskill-coin-display');
   if (el)  el.textContent  = c;
   if (el2) el2.textContent = c;
+  if (el3) el3.textContent = c;
 }
+
+// ─── 特殊技の定義 ──────────────────────────────────────────
+const SKILLS = [
+  { id: 'dash',      name: 'ダッシュ' },
+  { id: 'hyperjump', name: 'ハイパージャンプ' },
+  { id: 'meteor',    name: '隕石投げ' },
+];
 
 // ─── 所持アイテム ──────────────────────────────────────────
 function getOwned() {
@@ -124,7 +135,73 @@ function hideShop() {
   shopEl.classList.add('hidden');
 }
 
-document.getElementById('btn-shop-close').addEventListener('click', hideShop);
+// ── ショップ選択メニュー（剣 / 特殊技）──
+function showShopMenu() {
+  updateCoinDisplay();
+  shopMenuEl.classList.remove('hidden');
+}
+function hideShopMenu() {
+  shopMenuEl.classList.add('hidden');
+}
+
+// ── 特殊技のお店 ──
+function refreshSkillButtons() {
+  const coins = getCoins();
+  const owned = getOwned();
+  document.querySelectorAll('.skill-buy-btn').forEach(btn => {
+    const id   = btn.dataset.skill;
+    const cost = parseInt(btn.dataset.cost, 10);
+    if (owned[id]) {
+      btn.textContent = '購入済み';
+      btn.disabled    = true;
+      btn.className   = 'skill-buy-btn owned';
+    } else {
+      btn.textContent = '購入する';
+      btn.disabled    = coins < cost;
+      btn.className   = 'skill-buy-btn';
+    }
+  });
+}
+function showSkillShop() {
+  updateCoinDisplay();
+  refreshSkillButtons();
+  shopSkillEl.classList.remove('hidden');
+}
+function hideSkillShop() {
+  shopSkillEl.classList.add('hidden');
+}
+
+document.getElementById('btn-shop-close').addEventListener('click', () => {
+  hideShop();
+  showShopMenu();
+});
+document.getElementById('btn-shopmenu-close').addEventListener('click', hideShopMenu);
+document.getElementById('btn-shopskill-close').addEventListener('click', () => {
+  hideSkillShop();
+  showShopMenu();
+});
+document.getElementById('btn-shop-sword').addEventListener('click', () => {
+  hideShopMenu();
+  showShop();
+});
+document.getElementById('btn-shop-skill').addEventListener('click', () => {
+  hideShopMenu();
+  showSkillShop();
+});
+
+// 特殊技の購入
+document.querySelectorAll('.skill-buy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const id   = btn.dataset.skill;
+    const cost = parseInt(btn.dataset.cost, 10);
+    if (getOwned()[id]) return;
+    if (getCoins() < cost) return;
+    spendCoins(cost);
+    ownItem(id);
+    refreshSkillButtons();
+    updateSpecialBtn();
+  });
+});
 
 document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.setItem('dz_coins', '0');
@@ -135,7 +212,9 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   potions = 0;
   updateCoinDisplay();
   refreshShopButtons();
+  refreshSkillButtons();
   updatePotionBtn();
+  updateSpecialBtn();
 });
 
 document.getElementById('btn-cheat-coin').addEventListener('click', () => {
@@ -189,7 +268,7 @@ document.getElementById('btn-home-start').addEventListener('click', () => {
   }
 });
 
-document.getElementById('btn-home-shop').addEventListener('click', showShop);
+document.getElementById('btn-home-shop').addEventListener('click', showShopMenu);
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
 game.zombies.onKill = ({ drops, remaining }) => {
@@ -234,7 +313,74 @@ function updatePotionBtn() {
   } else {
     btn.classList.add('hidden');
   }
+  // バトルHUDの「特殊技発動」ボタンも同じタイミングで更新
+  updateSpecialBtn();
 }
+
+// ─── 特殊技 発動UI ────────────────────────────────────────
+const specialBtn  = document.getElementById('special-btn');
+const specialMenu = document.getElementById('special-menu');
+const hyperBtn    = document.getElementById('hyperjump-btn');
+
+function ownedSkills() {
+  const o = getOwned();
+  return SKILLS.filter(s => o[s.id]);
+}
+
+// バトル中かつ所持特殊技があれば「特殊技発動」ボタンを表示
+function updateSpecialBtn() {
+  const playing = state === STATE.PLAYING;
+  if (playing && ownedSkills().length > 0) {
+    specialBtn.classList.remove('hidden');
+  } else {
+    specialBtn.classList.add('hidden');
+  }
+  if (!playing) {
+    specialMenu.classList.add('hidden');
+    hyperBtn.classList.add('hidden');
+  }
+}
+
+// 所持している特殊技を選択メニューに並べる
+function buildSpecialMenu() {
+  specialMenu.innerHTML = '';
+  for (const s of ownedSkills()) {
+    const b = document.createElement('button');
+    b.className   = 'special-skill-btn';
+    b.textContent = s.name;
+    b.addEventListener('click', () => {
+      activateSkill(s.id);
+      specialMenu.classList.add('hidden');
+    });
+    specialMenu.appendChild(b);
+  }
+}
+
+function activateSkill(id) {
+  if (state !== STATE.PLAYING) return;
+  if (id === 'dash') {
+    game.player.startDash();
+  } else if (id === 'hyperjump') {
+    // 攻撃ボタンの隣に黄色いジャンプボタンを出す
+    hyperBtn.classList.remove('hidden');
+  } else if (id === 'meteor') {
+    game.zombies.castMeteor(game.player);
+  }
+}
+
+specialBtn.addEventListener('click', () => {
+  if (specialMenu.classList.contains('hidden')) {
+    buildSpecialMenu();
+    specialMenu.classList.remove('hidden');
+  } else {
+    specialMenu.classList.add('hidden');
+  }
+});
+
+hyperBtn.addEventListener('click', () => {
+  if (state !== STATE.PLAYING) return;
+  game.player.startHyperJump();
+});
 
 // ─── 回復薬ゲット通知 ────────────────────────────────────
 function _showPotionGet() {
@@ -394,6 +540,11 @@ document.getElementById('btn-op-no').addEventListener('click', () => {
 
 // ─── クリア画面「ホーム画面に戻る」 ─────────────────────────
 document.getElementById('btn-home-from-clear').addEventListener('click', () => {
+  showHome();
+});
+
+// ─── ゲームオーバー画面「ホームに戻る」 ──────────────────────
+document.getElementById('btn-home-from-over').addEventListener('click', () => {
   showHome();
 });
 

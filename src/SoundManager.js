@@ -234,6 +234,121 @@ class SoundManager {
       ns.start(t);
     }
   }
+
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技: ダッシュ／ジャンプの「シュッ」（空気を切る音）
+  // ═══════════════════════════════════════════════════════════
+  playWhoosh() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const ns = this._noise(0.32);
+    if (!ns) return;
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.Q.value = 0.8;
+    bpf.frequency.setValueAtTime(500, t);
+    bpf.frequency.exponentialRampToValueAtTime(2600, t + 0.28);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0, t);
+    g.gain.linearRampToValueAtTime(0.32, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.30);
+    ns.connect(bpf); bpf.connect(g); g.connect(ctx.destination);
+    ns.start(t);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技: 着地の「ドスッ」
+  // ═══════════════════════════════════════════════════════════
+  playLand() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(170, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.55, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.24);
+    const ns = this._noise(0.12);
+    if (ns) {
+      const lpf = ctx.createBiquadFilter();
+      lpf.type = 'lowpass'; lpf.frequency.value = 300;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.4, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      ns.connect(lpf); lpf.connect(ng); ng.connect(ctx.destination);
+      ns.start(t);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技: 隕石着弾の「ドゴォン」
+  // ═══════════════════════════════════════════════════════════
+  playMeteorImpact() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // 重低音
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.5);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.7, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.62);
+    // 爆発ノイズ
+    const ns = this._noise(0.5);
+    if (ns) {
+      const lpf = ctx.createBiquadFilter();
+      lpf.type = 'lowpass';
+      lpf.frequency.setValueAtTime(1800, t);
+      lpf.frequency.exponentialRampToValueAtTime(200, t + 0.45);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.6, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      ns.connect(lpf); lpf.connect(ng); ng.connect(ctx.destination);
+      ns.start(t);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技: ゾンビ蒸発の「シューーッ」（湯気が立つ音）
+  // ═══════════════════════════════════════════════════════════
+  playEvaporate() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    // スチームのホワイトノイズ
+    const ns = this._noise(0.7);
+    if (ns) {
+      const hpf = ctx.createBiquadFilter();
+      hpf.type = 'highpass';
+      hpf.frequency.setValueAtTime(1200, t);
+      hpf.frequency.exponentialRampToValueAtTime(5000, t + 0.6);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.0, t);
+      ng.gain.linearRampToValueAtTime(0.34, t + 0.06);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.68);
+      ns.connect(hpf); hpf.connect(ng); ng.connect(ctx.destination);
+      ns.start(t);
+    }
+    // 上昇するシマー
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(600, t);
+    osc.frequency.exponentialRampToValueAtTime(2400, t + 0.6);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.12, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(t); osc.stop(t + 0.62);
+  }
 }
 
 export const soundManager = new SoundManager();

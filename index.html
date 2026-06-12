@@ -280,14 +280,14 @@
     .home-coins .coin-emoji { font-size: 20px; line-height: 1; }
 
     /* ===== Shop Screen ===== */
-    #screen-shop {
+    .shop-screen {
       position: fixed; inset: 0; z-index: 50;
       background: rgba(4, 8, 18, 0.97);
       display: flex; flex-direction: column; align-items: center;
       padding: 28px 16px 40px;
       overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
-    #screen-shop.hidden { display: none; }
+    .shop-screen.hidden { display: none; }
 
     .shop-header {
       width: 100%; max-width: 460px;
@@ -489,6 +489,110 @@
       box-shadow: 0 1px 0 #a07800;
     }
     #btn-cheat-coin:active { transform: translateY(1px); box-shadow: none; opacity: 0.9; }
+
+    /* ===== Shop Menu (剣 / 特殊技 の選択) ===== */
+    #screen-shop-menu {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(4, 8, 18, 0.97);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 16px 40px;
+    }
+    #screen-shop-menu.hidden { display: none; }
+    .shopmenu-btns {
+      margin-top: 12vh;
+      display: flex; flex-direction: column; gap: 22px; width: 100%;
+      max-width: 360px; align-items: stretch;
+    }
+    .shopmenu-btn {
+      padding: 26px 0; font-size: 22px; font-weight: bold; letter-spacing: 3px;
+      color: #fff; cursor: pointer; border: none; border-radius: 18px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    #btn-shop-sword {
+      background: linear-gradient(180deg, #90caf9 0%, #1976d2 100%);
+      box-shadow: 0 7px 0 #0d47a1, 0 10px 24px rgba(0,0,0,0.22);
+    }
+    #btn-shop-sword:active { transform: translateY(5px); box-shadow: 0 2px 0 #0d47a1; }
+    #btn-shop-skill {
+      background: linear-gradient(180deg, #ce93d8 0%, #7b1fa2 100%);
+      box-shadow: 0 7px 0 #4a148c, 0 10px 24px rgba(0,0,0,0.22);
+    }
+    #btn-shop-skill:active { transform: translateY(5px); box-shadow: 0 2px 0 #4a148c; }
+
+    /* 特殊技ショップのタイトル（白） */
+    .shop-title-skill {
+      font-size: 28px; font-weight: bold; letter-spacing: 5px;
+      color: #ffffff; text-shadow: 0 0 18px rgba(255,255,255,0.45);
+    }
+    /* 特殊技アイコン（絵文字） */
+    .skill-icon {
+      flex-shrink: 0; width: 42px; text-align: center;
+      font-size: 34px; line-height: 1;
+    }
+    /* 特殊技 購入ボタン（剣と同じ見た目） */
+    .skill-buy-btn {
+      flex-shrink: 0;
+      padding: 11px 18px; font-size: 14px; font-weight: bold; letter-spacing: 2px;
+      border: none; border-radius: 10px; cursor: pointer;
+      color: #0a0a0a;
+      background: linear-gradient(180deg, #ffd740, #ff8f00);
+      box-shadow: 0 3px 0 #bf6000;
+      transition: transform 0.08s;
+    }
+    .skill-buy-btn:active  { transform: translateY(2px); box-shadow: 0 1px 0 #bf6000; }
+    .skill-buy-btn:disabled {
+      background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.28);
+      box-shadow: none; cursor: default; transform: none;
+    }
+    .skill-buy-btn.owned {
+      background: rgba(110,226,110,0.15); color: #6ee26e;
+      border: 1px solid rgba(110,226,110,0.5);
+      box-shadow: none; cursor: default; transform: none;
+      font-size: 13px;
+    }
+
+    /* ===== 特殊技発動ボタン（バトル中・右上） ===== */
+    #special-btn {
+      position: fixed; top: 92px; right: 16px; z-index: 21;
+      pointer-events: auto; touch-action: none;
+      padding: 10px 16px; border-radius: 12px;
+      background: rgba(255,255,255,0.92); color: #1a1a1a;
+      border: 2px solid rgba(255,255,255,0.7);
+      font-size: 14px; font-weight: bold; letter-spacing: 1px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4); cursor: pointer;
+    }
+    #special-btn.hidden { display: none; }
+    #special-btn:active { transform: scale(0.94); }
+
+    /* 特殊技 選択メニュー */
+    #special-menu {
+      position: fixed; top: 138px; right: 16px; z-index: 21;
+      display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+      pointer-events: auto;
+    }
+    #special-menu.hidden { display: none; }
+    .special-skill-btn {
+      padding: 10px 16px; border-radius: 10px; min-width: 160px;
+      background: linear-gradient(180deg, #ffffff, #dfe6ee); color: #142a14;
+      border: 2px solid rgba(255,255,255,0.8);
+      font-size: 14px; font-weight: bold; letter-spacing: 1px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.4); cursor: pointer; text-align: center;
+    }
+    .special-skill-btn:active { transform: scale(0.96); }
+
+    /* ハイパージャンプ ボタン（攻撃ボタンの隣・黄色） */
+    #hyperjump-btn {
+      position: fixed; right: 140px; bottom: 64px; width: 80px; height: 80px;
+      border-radius: 50%; z-index: 20; pointer-events: auto; touch-action: none;
+      background: radial-gradient(circle at 35% 30%, #ffe066, #f6b300);
+      border: 3px solid rgba(255,255,255,0.7);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; font-weight: bold; color: #5a3d00;
+    }
+    #hyperjump-btn.hidden { display: none; }
+    #hyperjump-btn:active { transform: scale(0.9); filter: brightness(1.15); }
   </style>
 
   <script type="importmap">
@@ -530,7 +634,12 @@
     <div id="joystick-knob"></div>
   </div>
   <div id="attack-btn">攻撃</div>
+  <button id="hyperjump-btn" class="hidden">⬆</button>
   <button id="potion-btn" class="hidden">使う</button>
+
+  <!-- 特殊技発動（バトル中・右上） -->
+  <button id="special-btn" class="hidden">特殊技発動</button>
+  <div id="special-menu" class="hidden"></div>
 
   <!-- Home Screen -->
   <div id="screen-home">
@@ -573,10 +682,22 @@
     </div>
   </div>
 
-  <!-- Shop Screen -->
-  <div id="screen-shop" class="hidden">
-    <div class="shop-header">
+  <!-- Shop Menu (剣のお店 / 特殊技のお店) -->
+  <div id="screen-shop-menu" class="hidden">
+    <div class="shop-header" style="width:100%;max-width:460px;">
       <span class="shop-title">ショップ</span>
+      <button class="shop-close" id="btn-shopmenu-close">✕</button>
+    </div>
+    <div class="shopmenu-btns">
+      <button class="shopmenu-btn" id="btn-shop-sword">⚔️ 剣のお店</button>
+      <button class="shopmenu-btn" id="btn-shop-skill">✨ 特殊技のお店</button>
+    </div>
+  </div>
+
+  <!-- Shop Screen (剣のお店) -->
+  <div id="screen-shop" class="shop-screen hidden">
+    <div class="shop-header">
+      <span class="shop-title">剣のお店</span>
       <button class="shop-close" id="btn-shop-close">✕</button>
     </div>
     <div class="shop-coins-bar">
@@ -690,6 +811,53 @@
     </div>
   </div>
 
+  <!-- Shop Screen (特殊技のお店) -->
+  <div id="screen-shop-skill" class="shop-screen hidden">
+    <div class="shop-header">
+      <span class="shop-title-skill">特殊技</span>
+      <button class="shop-close" id="btn-shopskill-close">✕</button>
+    </div>
+    <div class="shop-coins-bar">
+      所持コイン：<strong id="shopskill-coin-display">0</strong> 🪙
+    </div>
+    <div class="shop-items">
+
+      <!-- ダッシュ -->
+      <div class="shop-item">
+        <div class="skill-icon">💨</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ダッシュ</div>
+          <div class="shop-item-price">🪙 500円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">5秒間、走る速さが2倍になる</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="dash" data-cost="500">購入する</button>
+      </div>
+
+      <!-- ハイパージャンプ -->
+      <div class="shop-item">
+        <div class="skill-icon">⬆️</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ハイパージャンプ</div>
+          <div class="shop-item-price">🪙 750円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">空高くジャンプする（着地でダメージ）</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="hyperjump" data-cost="750">購入する</button>
+      </div>
+
+      <!-- 隕石投げ -->
+      <div class="shop-item">
+        <div class="skill-icon">☄️</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">隕石投げ</div>
+          <div class="shop-item-price">🪙 1,200円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">近くのゾンビ2体に隕石を落とす</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="meteor" data-cost="1200">購入する</button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Opening Choice -->
   <div id="screen-op-choice" class="hidden">
     <div class="op-choice-logo">ダンジョン<span class="z">Z</span></div>
@@ -723,7 +891,10 @@
     <h1>GAME OVER</h1>
     <div class="big">あなたは力尽きた…</div>
     <div class="result" id="over-result"></div>
-    <button class="btn" id="btn-retry-over">リトライ</button>
+    <div class="clear-btns">
+      <button class="btn" id="btn-retry-over">リトライ</button>
+      <button class="btn btn-teal" id="btn-home-from-over">ホームに戻る</button>
+    </div>
   </div>
 
   <div id="loading">読み込み中…</div>

@@ -25,6 +25,12 @@ export class Zombie {
     this.facing = 0;
     this._moving = false;
     this._lunging = false;
+
+    // 隕石による凍結（true の間は動かず攻撃しない）
+    this.frozen = false;
+    this._frozenX = 0;
+    this._frozenZ = 0;
+    this._vaporize = false; // 蒸発death演出フラグ
   }
 
   get position() { return this.root.position; }
@@ -33,12 +39,29 @@ export class Zombie {
   update(dt, player) {
     if (this.dying) {
       this.deathT += dt;
+      if (this._vaporize) {
+        // 蒸発: 上昇しながら縮んで回転して消える
+        const t = Math.min(1, this.deathT / 0.9);
+        this.root.position.y = t * 1.6;
+        this.root.rotation.y += dt * 6;
+        this.root.scale.setScalar(Math.max(0.001, 1 - t));
+        if (t >= 1) this.alive = false;
+        return 0;
+      }
       const t = Math.min(1, this.deathT / 0.8);
       // 前方へ崩れ落ちる演出
       this.root.rotation.x = t * (Math.PI / 2.2);
       this.root.position.y = -t * 0.5;
       this.root.scale.setScalar(1 - t * 0.12);
       if (t >= 1) this.alive = false;
+      return 0;
+    }
+
+    // 隕石で凍結中: その場で小刻みに震えるだけ
+    if (this.frozen) {
+      this._phase += dt * 28;
+      this.root.position.x = this._frozenX + Math.sin(this._phase) * 0.03;
+      this.root.position.z = this._frozenZ + Math.cos(this._phase * 1.3) * 0.02;
       return 0;
     }
 
@@ -161,6 +184,21 @@ export class Zombie {
 
   // ─── 死亡 ──────────────────────────────────────────────────
   die() {
+    this.dying = true;
+    this.deathT = 0;
+  }
+
+  // ─── 隕石: 凍結 ────────────────────────────────────────────
+  freeze() {
+    this.frozen = true;
+    this._frozenX = this.root.position.x;
+    this._frozenZ = this.root.position.z;
+  }
+
+  // ─── 隕石: 蒸発して死亡 ────────────────────────────────────
+  vaporizeDie() {
+    this.frozen = false;
+    this._vaporize = true;
     this.dying = true;
     this.deathT = 0;
   }

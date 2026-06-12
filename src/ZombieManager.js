@@ -6,7 +6,7 @@ import { Zombie } from './Zombie.js';
 import { MiniZombie } from './MiniZombie.js';
 import { PurpleZombie } from './PurpleZombie.js';
 import { Boss } from './Boss.js';
-import { STAGE, STAGE2, STAGE3, STAGE4, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE } from './core/Constants.js';
+import { STAGE, STAGE2, STAGE3, STAGE4, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL } from './core/Constants.js';
 import { soundManager } from './SoundManager.js';
 
 export class ZombieManager {
@@ -22,6 +22,7 @@ export class ZombieManager {
     this._clearedFired = false;
     this._arrows    = [];  // netherite VFX 矢
     this._particles = [];  // light / blackhole / lightning VFX
+    this._meteors   = [];  // 特殊技「隕石投げ」の隕石
 
     // stage2 ボス管理
     this._hasBoss    = false;
@@ -163,6 +164,9 @@ export class ZombieManager {
         this._particles.splice(i, 1);
       }
     }
+
+    // 隕石（特殊技）更新
+    this._updateMeteors(dt);
 
     // ゾンビ更新
     let totalDmg = 0;
@@ -523,6 +527,137 @@ export class ZombieManager {
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技「隕石投げ」
+  // 近くの生存ゾンビ最大2体に隕石を落とす。
+  //   着弾でゾンビは凍結 → 2秒後に蒸発して死亡。
+  //   隕石は当たっても残り、着弾10秒後に崩れて消える。
+  // ═══════════════════════════════════════════════════════════
+  castMeteor(player) {
+    const px = player.position.x, pz = player.position.z;
+    const targets = this.zombies
+      .filter(z => z.alive && !z.dying && !z.frozen)
+      .map(z => ({ z, d: Math.hypot(z.position.x - px, z.position.z - pz) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, SPECIAL.METEOR_COUNT);
+
+    for (const { z } of targets) {
+      z.freeze();              // 着弾を待つ間も動かないよう即凍結
+      this._spawnMeteor(z);
+    }
+    return targets.length;
+  }
+
+  _spawnMeteor(target) {
+    const mesh = buildMeteor(SPECIAL.METEOR_SIZE);
+    mesh.position.set(target.position.x, SPECIAL.METEOR_SPAWN_Y, target.position.z);
+    this.scene.add(mesh);
+    this._meteors.push({
+      mesh, target,
+      vy: 0,
+      phase: 'fall',
+      deathTimer: SPECIAL.METEOR_FREEZE, // 着弾後カウントダウン
+      life: SPECIAL.METEOR_LIFE,         // 着弾後の寿命
+      landY: SPECIAL.METEOR_SIZE * 0.9,
+    });
+  }
+
+  _updateMeteors(dt) {
+    for (let i = this._meteors.length - 1; i >= 0; i--) {
+      const m = this._meteors[i];
+      m.mesh.rotation.x += dt * 1.2;
+      m.mesh.rotation.y += dt * 0.9;
+
+      if (m.phase === 'fall') {
+        m.vy -= SPECIAL.METEOR_FALL_GRAVITY * dt;
+        m.mesh.position.y += m.vy * dt;
+        if (m.mesh.position.y <= m.landY) {
+          m.mesh.position.y = m.landY;
+          m.phase = 'landed';
+          soundManager.playMeteorImpact();
+          this._spawnMeteorImpactVfx(m.mesh.position);
+        }
+        continue;
+      }
+
+      // 着弾後
+      if (m.target) {
+        m.deathTimer -= dt;
+        if (m.deathTimer <= 0) {
+          const z = m.target;
+          m.target = null;
+          if (z.alive && !z.dying) {
+            z.vaporizeDie();
+            soundManager.playEvaporate();
+            this._spawnVaporVfx(z.position);
+            this._onKill();
+          }
+        }
+      }
+
+      m.life -= dt;
+      if (m.life <= 2) {
+        // 最後の2秒でボロボロ崩れて縮む
+        const k = Math.max(0, m.life / 2);
+        m.mesh.scale.setScalar(Math.max(0.001, k));
+        m.mesh.position.y = m.landY * k;
+      }
+      if (m.life <= 0) {
+        this._disposeMeteor(m);
+        this._meteors.splice(i, 1);
+      }
+    }
+  }
+
+  _disposeMeteor(m) {
+    this.scene.remove(m.mesh);
+    m.mesh.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach(x => x.dispose());
+        else o.material.dispose();
+      }
+    });
+  }
+
+  // 着弾時の砂塵・破片
+  _spawnMeteorImpactVfx(pos) {
+    const COLS = [0xff6622, 0xffaa33, 0x552211, 0x884422];
+    for (let i = 0; i < 18; i++) {
+      const angle = (i / 18) * Math.PI * 2;
+      const speed = 4 + Math.random() * 5;
+      const geo  = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 4] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, 0.3, pos.z);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.6,
+        vx: Math.sin(angle) * speed, vy: 3 + Math.random() * 3, vz: Math.cos(angle) * speed,
+        gravity: true,
+      });
+    }
+  }
+
+  // 蒸発する湯気
+  _spawnVaporVfx(pos) {
+    const COLS = [0xccffcc, 0xaaffdd, 0xeeffee, 0x99ddbb];
+    for (let i = 0; i < 16; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r     = Math.random() * 0.4;
+      const geo  = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 4] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x + Math.sin(angle) * r, 0.5 + Math.random() * 0.5, pos.z + Math.cos(angle) * r);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.9,
+        vx: Math.sin(angle) * 0.6, vy: 2 + Math.random() * 1.5, vz: Math.cos(angle) * 0.6,
+        gravity: false,
+      });
+    }
+  }
+
   _onKill() {
     this.killed++;
     const got = { stone: false, ore: false };
@@ -545,9 +680,11 @@ export class ZombieManager {
       p.mesh.geometry.dispose();
       p.mesh.material.dispose();
     }
+    for (const m of this._meteors) this._disposeMeteor(m);
     this.zombies        = [];
     this._arrows        = [];
     this._particles     = [];
+    this._meteors       = [];
     this.drops          = { stone: 0, ore: 0 };
     this.killed         = 0;
     this._clearedFired  = false;
@@ -556,6 +693,26 @@ export class ZombieManager {
     this._hasPurple     = false;
     this._purpleSpawned = false;
   }
+}
+
+// ── 隕石メッシュ生成（ごつごつした溶岩岩） ──────────────────
+function buildMeteor(radius) {
+  const g = new THREE.Group();
+  const geo = new THREE.IcosahedronGeometry(radius, 0);
+  // 頂点を少しランダムにずらして岩のごつごつ感を出す
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const f = 0.82 + Math.random() * 0.36;
+    pos.setXYZ(i, pos.getX(i) * f, pos.getY(i) * f, pos.getZ(i) * f);
+  }
+  geo.computeVertexNormals();
+  const rock = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    color: 0x3a2218, roughness: 1.0, metalness: 0.0,
+    emissive: 0xff4500, emissiveIntensity: 0.6,
+  }));
+  rock.castShadow = true;
+  g.add(rock);
+  return g;
 }
 
 function rand(a, b) { return a + Math.random() * (b - a); }

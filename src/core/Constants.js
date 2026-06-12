@@ -14,6 +14,27 @@ export const SWORD = {
   ARC: Math.PI * 0.7,    // 攻撃判定の左右角度(ラジアン)
 };
 
+// 特殊技パラメータ
+export const SPECIAL = {
+  // ダッシュ
+  DASH_DURATION: 5,      // 効果時間(秒)
+  DASH_MULT: 2,          // 移動速度倍率
+
+  // ハイパージャンプ
+  JUMP_RISE_TIME: 2,     // 上昇にかける時間(秒)
+  JUMP_HEIGHT: 8,        // 最高到達高度(m)
+  JUMP_GRAVITY: 22,      // 落下加速度
+  JUMP_LAND_DAMAGE: 0.5, // 着地ダメージ
+
+  // 隕石投げ
+  METEOR_COUNT: 2,       // 同時に降らせる数（近いゾンビ順）
+  METEOR_FREEZE: 2,      // 着弾後、蒸発するまでの硬直(秒)
+  METEOR_LIFE: 10,       // 着弾後、崩れて消えるまで(秒)
+  METEOR_SIZE: 0.9,      // 隕石半径（直径=プレイヤー身長相当）
+  METEOR_SPAWN_Y: 13,    // 出現高度
+  METEOR_FALL_GRAVITY: 30,
+};
+
 // 武器種別定義
 export const WEAPONS = {
   copper: {
