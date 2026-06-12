@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ログ
+*.log
+npm-debug.log*
+
+# 依存関係（CDN使用のため不要）
+node_modules/
+
+# 環境設定
+.env
+.env.local
+
+# Claude Code設定
+.claude/

@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>ダンジョンZ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #0a0e0a; color: #e8f0e0;
+      font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: none;
+    }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; }
+
+    /* ===== HUD ===== */
+    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    #hud .top-bar {
+      position: absolute; top: env(safe-area-inset-top, 12px); left: 0; right: 0;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding: 12px 16px;
+    }
+    .hp-wrap { width: 44%; max-width: 280px; }
+    .hp-label { font-size: 12px; font-weight: bold; margin-bottom: 4px; text-shadow: 0 1px 2px #000; letter-spacing: 1px; }
+    .hp-track {
+      width: 100%; height: 18px; background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.35); border-radius: 10px; overflow: hidden;
+    }
+    .hp-fill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #e23b3b, #ff6b4a);
+      transition: width 0.18s ease-out;
+    }
+    .stats { text-align: right; font-size: 13px; line-height: 1.7; text-shadow: 0 1px 2px #000; }
+    .stats .count { font-weight: bold; font-size: 16px; }
+    .stat-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+    .stat-row img { width: 22px; height: 22px; object-fit: contain; vertical-align: middle; }
+    .stone-icon {
+      display: inline-block; width: 18px; height: 18px; border-radius: 4px;
+      background: linear-gradient(135deg, #9a948c, #5c574f); border: 1px solid #3a352f;
+    }
+
+    /* ===== Touch controls ===== */
+    #joystick-zone {
+      position: fixed; left: 0; bottom: 0; width: 45%; height: 50%;
+      z-index: 20; pointer-events: auto; touch-action: none;
+    }
+    #joystick-base {
+      position: absolute; width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.10); border: 2px solid rgba(255,255,255,0.30);
+      transform: translate(-50%, -50%); display: none;
+    }
+    #joystick-knob {
+      position: absolute; width: 56px; height: 56px; border-radius: 50%;
+      background: rgba(255,255,255,0.35); border: 2px solid rgba(255,255,255,0.55);
+      transform: translate(-50%, -50%); display: none;
+    }
+    #attack-btn {
+      position: fixed; right: 28px; bottom: 64px; width: 96px; height: 96px;
+      border-radius: 50%; z-index: 20; pointer-events: auto; touch-action: none;
+      background: radial-gradient(circle at 35% 30%, #ff8a5a, #c0392b);
+      border: 3px solid rgba(255,255,255,0.6);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px #000;
+    }
+    #attack-btn.pressed { transform: scale(0.9); filter: brightness(1.2); }
+
+    /* ===== Screens ===== */
+    .screen {
+      position: fixed; inset: 0; z-index: 30; pointer-events: auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 24px;
+      background: radial-gradient(circle at center, rgba(10,20,10,0.82), rgba(0,0,0,0.94));
+    }
+    .screen.hidden { display: none; }
+    .screen h1 { font-size: 40px; letter-spacing: 4px; margin-bottom: 6px; text-shadow: 0 2px 8px #000; }
+    .screen h1 .z { color: #6ee26e; }
+    .screen .sub { font-size: 15px; opacity: 0.8; margin-bottom: 28px; line-height: 1.8; }
+    .screen .big { font-size: 30px; margin-bottom: 16px; font-weight: bold; }
+    .screen .result { font-size: 15px; line-height: 2; margin-bottom: 28px; opacity: 0.9; }
+    .btn {
+      pointer-events: auto; cursor: pointer;
+      padding: 16px 44px; font-size: 18px; font-weight: bold; letter-spacing: 2px;
+      color: #0a140a; background: linear-gradient(180deg, #8ef08e, #4cc24c);
+      border: none; border-radius: 12px; box-shadow: 0 4px 0 #2e7d2e;
+    }
+    .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #2e7d2e; }
+    .btn-teal {
+      color: #fff; background: linear-gradient(180deg, #4dd0e1, #0097a7);
+      box-shadow: 0 4px 0 #006978;
+    }
+    .btn-teal:active { box-shadow: 0 1px 0 #006978; }
+    .clear-btns { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .btn-orange {
+      color: #fff; background: linear-gradient(180deg, #ffb74d, #e65100);
+      box-shadow: 0 4px 0 #bf360c;
+    }
+    .btn-orange:active { box-shadow: 0 1px 0 #bf360c; }
+    .clear h1 { color: #ffd86e; }
+    .over h1 { color: #ff5a5a; }
+
+    /* ボスHPバー */
+    #boss-hp-wrap {
+      position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%);
+      width: 280px; z-index: 12; pointer-events: none;
+      background: rgba(0,0,0,0.55); border-radius: 10px;
+      padding: 7px 12px; border: 1px solid rgba(255,60,60,0.5);
+    }
+    #boss-hp-wrap.hidden { display: none; }
+    .boss-hp-label {
+      font-size: 11px; font-weight: bold; color: #ff6060;
+      text-align: center; margin-bottom: 4px; letter-spacing: 2px;
+      text-shadow: 0 0 8px #ff2020;
+    }
+    .boss-hp-track {
+      width: 100%; height: 13px; background: rgba(0,0,0,0.55);
+      border-radius: 7px; overflow: hidden;
+      border: 1px solid rgba(255,60,60,0.35);
+    }
+    .boss-hp-fill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #b71c1c, #ff5252);
+      transition: width 0.12s ease-out;
+    }
+
+    @keyframes stage2shake {
+      0%, 100% { transform: translateX(0) rotate(0deg); }
+      20%  { transform: translateX(-9px) rotate(-1.2deg); }
+      60%  { transform: translateX(9px) rotate(1.2deg); }
+    }
+    /* ポーション回復ボタン */
+    #potion-btn {
+      position: fixed; right: 28px; bottom: 176px;
+      width: 80px; height: 52px;
+      border-radius: 14px; z-index: 20;
+      pointer-events: auto; touch-action: none;
+      background: linear-gradient(180deg, #80deea, #0097a7);
+      border: 2px solid rgba(255,255,255,0.5);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.45), 0 0 12px rgba(0,188,212,0.35);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column;
+      font-size: 16px; font-weight: bold;
+      color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      cursor: pointer; line-height: 1.2;
+    }
+    #potion-btn.hidden { display: none; }
+    #potion-btn:active { transform: scale(0.92); filter: brightness(1.15); }
+
+    @keyframes potionGetAnim {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.85); }
+      15%  { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1.05); }
+      20%  { transform: translateX(-50%) translateY(0) scale(1); }
+      75%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(0.95); }
+    }
+
+    @keyframes bossWarnAnim {
+      0%   { opacity: 0; transform: translateX(-50%) scale(0.75); }
+      18%  { opacity: 1; transform: translateX(-50%) scale(1.06); }
+      75%  { opacity: 1; transform: translateX(-50%) scale(1.0); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1.0); }
+    }
+    #loading {
+      position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
+      background: #0a0e0a; font-size: 16px; letter-spacing: 2px; color: #6ee26e;
+    }
+
+    /* ===== Home Screen ===== */
+    #screen-home {
+      position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      background: linear-gradient(180deg, #29b6f6 0%, #4fc3f7 25%, #81d4fa 55%, #b3e5fc 80%, #e1f5fe 100%);
+      overflow: hidden;
+    }
+    #screen-home.hidden { display: none; }
+
+    /* 太陽 */
+    .home-sun {
+      position: absolute; top: 52px; right: 52px;
+      width: 78px; height: 78px; border-radius: 50%;
+      background: radial-gradient(circle at 40% 38%, #fffde7, #ffee58 55%, #ffd740);
+      box-shadow: 0 0 50px 18px rgba(255,236,64,0.45), 0 0 100px 40px rgba(255,200,0,0.18);
+    }
+
+    /* 雲 */
+    .home-cloud {
+      position: absolute; background: #fff;
+      border-radius: 60px; opacity: 0.88;
+    }
+    .home-cloud::before, .home-cloud::after {
+      content: ''; position: absolute; background: #fff; border-radius: 50%;
+    }
+    .hc1 { width:190px; height:52px; top:14%; }
+    .hc1::before { width:80px; height:72px; top:-36px; left:30px; }
+    .hc1::after  { width:60px; height:56px; top:-28px; left:90px; }
+    .hc2 { width:130px; height:38px; top:30%; }
+    .hc2::before { width:58px; height:54px; top:-26px; left:20px; }
+    .hc2::after  { width:44px; height:44px; top:-20px; left:62px; }
+    .hc3 { width:160px; height:44px; top:22%; }
+    .hc3::before { width:66px; height:62px; top:-30px; left:24px; }
+    .hc3::after  { width:50px; height:50px; top:-24px; left:78px; }
+
+    @keyframes cloudDrift {
+      from { transform: translateX(-320px); }
+      to   { transform: translateX(110vw); }
+    }
+
+    /* 地面 */
+    .home-ground {
+      position: absolute; bottom: 0; left: 0; right: 0; height: 130px;
+      background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
+    }
+    .home-ground::before {
+      content: ''; position: absolute; top: -20px; left: -5%; right: -5%; height: 44px;
+      background: radial-gradient(ellipse at 50% 100%, #76c442 30%, transparent 70%);
+    }
+    /* 木シルエット */
+    .home-tree {
+      position: absolute; bottom: 110px; display: flex; flex-direction: column; align-items: center;
+    }
+    .home-tree .trunk { width: 16px; border-radius: 4px; background: #5c3d1e; }
+    .home-tree .leaf  { border-radius: 50% 50% 40% 40%; background: #2e7d32; }
+
+    /* タイトルロゴ */
+    .home-logo {
+      position: absolute; top: 80px; left: 0; right: 0;
+      text-align: center;
+      font-size: 58px; font-weight: bold; letter-spacing: 6px;
+      color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 6px 18px rgba(0,80,160,0.25);
+    }
+    .home-logo .z {
+      color: #4caf50; text-shadow: 0 0 18px #81c784, 0 3px 0 rgba(0,0,0,0.18);
+    }
+    .home-logo .sub {
+      display: block; font-size: 13px; letter-spacing: 5px;
+      color: rgba(255,255,255,0.75); margin-top: 2px; font-weight: normal;
+    }
+
+    /* ボタン群 */
+    .home-btns {
+      position: relative; z-index: 5; margin-bottom: 56px;
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+    }
+    .home-btn-start {
+      width: 270px; padding: 22px 0; font-size: 22px; font-weight: bold; letter-spacing: 4px;
+      color: #fff;
+      background: linear-gradient(180deg, #ff8a65 0%, #e64a19 100%);
+      border: none; border-radius: 18px;
+      box-shadow: 0 7px 0 #bf360c, 0 10px 24px rgba(0,0,0,0.28);
+      cursor: pointer; text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .home-btn-start:active { transform: translateY(5px); box-shadow: 0 2px 0 #bf360c; }
+    .home-btn-shop {
+      width: 270px; padding: 18px 0; font-size: 20px; font-weight: bold; letter-spacing: 4px;
+      color: #fff;
+      background: linear-gradient(180deg, #90caf9 0%, #1976d2 100%);
+      border: none; border-radius: 18px;
+      box-shadow: 0 7px 0 #0d47a1, 0 10px 24px rgba(0,0,0,0.22);
+      cursor: pointer; text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      transition: transform 0.08s, box-shadow 0.08s;
+    }
+    .home-btn-shop:active { transform: translateY(5px); box-shadow: 0 2px 0 #0d47a1; }
+
+    /* ホーム画面 コイン表示 */
+    .home-coins {
+      position: absolute; top: 18px; left: 18px; z-index: 10;
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,0,0,0.35); border-radius: 20px;
+      padding: 7px 14px 7px 10px;
+      font-size: 20px; font-weight: bold; color: #fff;
+      text-shadow: 0 1px 2px #000;
+      border: 1px solid rgba(255,220,60,0.45);
+    }
+    .home-coins .coin-emoji { font-size: 20px; line-height: 1; }
+
+    /* ===== Shop Screen ===== */
+    #screen-shop {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(4, 8, 18, 0.97);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 28px 16px 40px;
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    #screen-shop.hidden { display: none; }
+
+    .shop-header {
+      width: 100%; max-width: 460px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .shop-title {
+      font-size: 28px; font-weight: bold; letter-spacing: 5px;
+      color: #ffd740; text-shadow: 0 0 20px rgba(255,200,40,0.5);
+    }
+    .shop-close {
+      width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+      background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.22);
+      color: #fff; font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .shop-close:active { background: rgba(255,255,255,0.18); }
+
+    .shop-coins-bar {
+      width: 100%; max-width: 460px; text-align: center;
+      font-size: 16px; color: #ffd740; letter-spacing: 2px;
+      margin-bottom: 22px; padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .shop-items {
+      width: 100%; max-width: 460px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .shop-item {
+      display: flex; align-items: center; gap: 18px;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.11);
+      border-radius: 16px; padding: 18px 18px;
+    }
+
+    /* ── 剣アイコン ── */
+    .sword-icon {
+      display: flex; flex-direction: column; align-items: center;
+      flex-shrink: 0; width: 38px;
+    }
+    .sw-tip {
+      width: 0; height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+    }
+    .sw-blade { width: 14px; }
+    .sw-guard { height: 9px; border-radius: 3px; }
+    .sw-handle { width: 10px; border-radius: 0 0 3px 3px; }
+    .sw-pommel { border-radius: 50%; }
+
+    /* 鉄の剣 (白/銀) */
+    .sword-iron .sw-tip   { border-bottom: 16px solid #e0e0e0; }
+    .sword-iron .sw-blade { height: 50px; background: linear-gradient(180deg, #f5f5f5, #b0b0b0); }
+    .sword-iron .sw-guard { width: 38px; background: #9e9e9e; }
+    .sword-iron .sw-handle{ height: 20px; background: #7a5c3a; }
+    .sword-iron .sw-pommel{ width: 16px; height: 11px; background: #9e9e9e; }
+
+    /* ダイヤの剣 (水色) */
+    .sword-diamond .sw-tip   { border-bottom: 16px solid #b2f4ff; }
+    .sword-diamond .sw-blade { height: 50px; background: linear-gradient(180deg, #b2f4ff, #26c6da); }
+    .sword-diamond .sw-guard { width: 38px; background: #00bcd4; }
+    .sword-diamond .sw-handle{ height: 20px; background: #7a5c3a; }
+    .sword-diamond .sw-pommel{ width: 16px; height: 11px; background: #00bcd4; }
+
+    /* ネザライトの剣 (黒曜石色) */
+    .sword-netherite .sw-tip   { border-bottom: 16px solid #6a3e8a; }
+    .sword-netherite .sw-blade { height: 50px; background: linear-gradient(180deg, #7c4aa0, #2d1640); }
+    .sword-netherite .sw-guard { width: 38px; background: #1e0f2b; }
+    .sword-netherite .sw-handle{ height: 20px; background: #2c1a0c; }
+    .sword-netherite .sw-pommel{ width: 16px; height: 11px; background: #3d2055; }
+
+    /* 光の剣 (金色) */
+    .sword-light .sw-tip   { border-bottom: 16px solid #ffe57e; }
+    .sword-light .sw-blade { height: 50px; background: linear-gradient(180deg, #fff9c4, #ffd700); box-shadow: 0 0 8px 2px rgba(255,215,0,0.55); }
+    .sword-light .sw-guard { width: 38px; background: #ffb300; }
+    .sword-light .sw-handle{ height: 20px; background: #7a5c3a; }
+    .sword-light .sw-pommel{ width: 16px; height: 11px; background: #ffd740; }
+
+    /* ブラックホールソード (黒) */
+    .sword-blackhole .sw-tip   { border-bottom: 16px solid #1a1a2e; }
+    .sword-blackhole .sw-blade { height: 50px; background: linear-gradient(180deg, #1a1a2e, #06060e); box-shadow: 0 0 8px 3px rgba(120,0,200,0.4); }
+    .sword-blackhole .sw-guard { width: 38px; background: #0a0a18; }
+    .sword-blackhole .sw-handle{ height: 20px; background: #1a0f08; }
+    .sword-blackhole .sw-pommel{ width: 16px; height: 11px; background: #2a0044; }
+
+    /* ライトニングソード (黒+黄) */
+    .sword-lightning .sw-tip   { border-bottom: 16px solid #2a2a10; }
+    .sword-lightning .sw-blade {
+      height: 50px; width: 14px;
+      background: repeating-linear-gradient(135deg, #0d0d1a 0px, #0d0d1a 6px, #ffdd00 6px, #ffdd00 9px, #0d0d1a 9px, #0d0d1a 15px);
+      box-shadow: 0 0 7px 2px rgba(255,220,0,0.4);
+    }
+    .sword-lightning .sw-guard { width: 38px; background: #111100; }
+    .sword-lightning .sw-handle{ height: 20px; background: #1a1400; }
+    .sword-lightning .sw-pommel{ width: 16px; height: 11px; background: #333300; }
+
+    .shop-item-info { flex: 1; }
+    .shop-item-name {
+      font-size: 19px; font-weight: bold; letter-spacing: 2px; color: #fff;
+      margin-bottom: 5px;
+    }
+    .shop-item-price {
+      font-size: 14px; color: #ffd740; letter-spacing: 1px;
+    }
+
+    .shop-buy-btn {
+      flex-shrink: 0;
+      padding: 11px 18px; font-size: 14px; font-weight: bold; letter-spacing: 2px;
+      border: none; border-radius: 10px; cursor: pointer;
+      color: #0a0a0a;
+      background: linear-gradient(180deg, #ffd740, #ff8f00);
+      box-shadow: 0 3px 0 #bf6000;
+      transition: transform 0.08s;
+    }
+    .shop-buy-btn:active  { transform: translateY(2px); box-shadow: 0 1px 0 #bf6000; }
+    .shop-buy-btn:disabled {
+      background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.28);
+      box-shadow: none; cursor: default; transform: none;
+    }
+    .shop-buy-btn.owned {
+      background: rgba(110,226,110,0.15); color: #6ee26e;
+      border: 1px solid rgba(110,226,110,0.5);
+      box-shadow: none; cursor: default; transform: none;
+      font-size: 13px;
+    }
+    /* 装備中 */
+    .shop-buy-btn.equipped {
+      background: rgba(255,215,0,0.18); color: #ffd740;
+      border: 1px solid rgba(255,215,0,0.55);
+      box-shadow: 0 0 8px rgba(255,215,0,0.28);
+      cursor: default; transform: none;
+      font-size: 13px; font-weight: bold; letter-spacing: 1px;
+    }
+    /* 装備する（クリック可能） */
+    .shop-buy-btn.equip {
+      color: #fff; background: linear-gradient(180deg, #4dd0e1, #0097a7);
+      box-shadow: 0 3px 0 #006978;
+    }
+    .shop-buy-btn.equip:active { transform: translateY(2px); box-shadow: 0 1px 0 #006978; }
+
+    /* ===== Opening Choice Screen ===== */
+    #screen-op-choice {
+      position: fixed; inset: 0; z-index: 35; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 32px;
+      background: radial-gradient(ellipse at 50% 40%, #0d1a0d 0%, #020704 100%);
+    }
+    #screen-op-choice.hidden { display: none; }
+    .op-choice-logo {
+      font-size: 52px; font-weight: bold; letter-spacing: 6px;
+      color: #e8f0e0; text-shadow: 0 0 30px rgba(110,226,110,0.4), 0 2px 8px #000;
+      margin-bottom: 8px;
+    }
+    .op-choice-logo .z { color: #6ee26e; text-shadow: 0 0 20px #6ee26e, 0 2px 8px #000; }
+    .op-choice-stage {
+      font-size: 13px; letter-spacing: 3px; color: rgba(255,255,255,0.45);
+      margin-bottom: 44px;
+    }
+    .op-choice-question {
+      font-size: 18px; color: rgba(255,255,255,0.8); letter-spacing: 2px;
+      margin-bottom: 36px; line-height: 1.8;
+    }
+    .op-choice-btns { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .op-btn-yes {
+      padding: 16px 48px; font-size: 18px; font-weight: bold; letter-spacing: 3px;
+      color: #0a140a; background: linear-gradient(180deg, #8ef08e, #4cc24c);
+      border: none; border-radius: 12px; box-shadow: 0 4px 0 #2e7d2e;
+      cursor: pointer;
+    }
+    .op-btn-yes:active { transform: translateY(3px); box-shadow: 0 1px 0 #2e7d2e; }
+    .op-btn-no {
+      padding: 16px 48px; font-size: 18px; font-weight: bold; letter-spacing: 3px;
+      color: rgba(255,255,255,0.7);
+      background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 12px; cursor: pointer;
+    }
+    .op-btn-no:active { transform: translateY(2px); background: rgba(255,255,255,0.13); }
+
+    /* ショップ 下部ボタン群（削除＋裏技）*/
+    #shop-bottom-btns {
+      position: sticky; bottom: 0; align-self: flex-end;
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 8px; margin-top: 24px; padding-bottom: 6px;
+    }
+    #btn-reset-data {
+      padding: 12px 28px; font-size: 15px; font-weight: bold; letter-spacing: 2px;
+      color: #fff; background: linear-gradient(180deg, #ef5350, #b71c1c);
+      border: none; border-radius: 10px; cursor: pointer;
+      box-shadow: 0 3px 0 #7f0000;
+    }
+    #btn-reset-data:active { transform: translateY(2px); box-shadow: 0 1px 0 #7f0000; }
+
+    /* 裏技ボタン */
+    #btn-cheat-coin {
+      width: 18px; height: 18px;
+      background: #f5c518;
+      border: none; border-radius: 4px;
+      cursor: pointer; opacity: 0.55;
+      box-shadow: 0 1px 0 #a07800;
+    }
+    #btn-cheat-coin:active { transform: translateY(1px); box-shadow: none; opacity: 0.9; }
+  </style>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.161.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.161.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="top-bar">
+      <div class="hp-wrap">
+        <div class="hp-label">HP</div>
+        <div class="hp-track"><div class="hp-fill" id="hp-fill"></div></div>
+      </div>
+      <div class="stats">
+        <div class="stat-row">残りゾンビ <span class="count" id="zombie-count">10</span></div>
+        <div class="stat-row"><span class="stone-icon"></span> 古びた石 <span class="count" id="stone-count">0</span></div>
+        <div class="stat-row"><img src="item/azpedect.png" alt="鉄の鉱石" /> 鉄の鉱石 <span class="count" id="ore-count">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ボスHPバー -->
+  <div id="boss-hp-wrap" class="hidden">
+    <div class="boss-hp-label">⚠ ボス ⚠</div>
+    <div class="boss-hp-track"><div class="boss-hp-fill" id="boss-hp-fill"></div></div>
+  </div>
+
+  <!-- Touch controls -->
+  <div id="joystick-zone">
+    <div id="joystick-base"></div>
+    <div id="joystick-knob"></div>
+  </div>
+  <div id="attack-btn">攻撃</div>
+  <button id="potion-btn" class="hidden">使う</button>
+
+  <!-- Home Screen -->
+  <div id="screen-home">
+    <!-- コイン表示 -->
+    <div class="home-coins">
+      <span class="coin-emoji">🪙</span>
+      <span id="home-coin-display">0</span>
+    </div>
+    <!-- 太陽 -->
+    <div class="home-sun"></div>
+    <!-- 雲（アニメーション付き） -->
+    <div class="home-cloud hc1" style="animation: cloudDrift 32s linear 0s infinite;"></div>
+    <div class="home-cloud hc2" style="animation: cloudDrift 48s linear 12s infinite;"></div>
+    <div class="home-cloud hc3" style="animation: cloudDrift 58s linear 4s infinite;"></div>
+    <!-- 左の木 -->
+    <div class="home-tree" style="left:6%">
+      <div class="leaf" style="width:72px;height:90px;margin-bottom:-12px;background:#1b5e20;"></div>
+      <div class="leaf" style="width:90px;height:110px;margin-bottom:-14px;background:#2e7d32;"></div>
+      <div class="leaf" style="width:110px;height:130px;background:#388e3c;"></div>
+      <div class="trunk" style="height:48px;"></div>
+    </div>
+    <!-- 右の木 -->
+    <div class="home-tree" style="right:8%">
+      <div class="leaf" style="width:64px;height:80px;margin-bottom:-10px;background:#1b5e20;"></div>
+      <div class="leaf" style="width:82px;height:100px;margin-bottom:-12px;background:#2e7d32;"></div>
+      <div class="leaf" style="width:100px;height:120px;background:#388e3c;"></div>
+      <div class="trunk" style="height:42px;"></div>
+    </div>
+    <!-- 地面 -->
+    <div class="home-ground"></div>
+    <!-- タイトルロゴ -->
+    <div class="home-logo">
+      ダンジョン<span class="z">Z</span>
+      <span class="sub">DUNGEON Z</span>
+    </div>
+    <!-- ボタン -->
+    <div class="home-btns">
+      <button class="home-btn-start" id="btn-home-start">ゲームスタート</button>
+      <button class="home-btn-shop"  id="btn-home-shop">ショップ</button>
+    </div>
+  </div>
+
+  <!-- Shop Screen -->
+  <div id="screen-shop" class="hidden">
+    <div class="shop-header">
+      <span class="shop-title">ショップ</span>
+      <button class="shop-close" id="btn-shop-close">✕</button>
+    </div>
+    <div class="shop-coins-bar">
+      所持コイン：<strong id="shop-coin-display">0</strong> 🪙
+    </div>
+    <div class="shop-items">
+
+      <!-- 鉄の剣 -->
+      <div class="shop-item">
+        <div class="sword-icon sword-iron">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">鉄の剣</div>
+          <div class="shop-item-price">🪙 100コイン</div>
+        </div>
+        <button class="shop-buy-btn" id="btn-buy-iron" data-item="iron" data-cost="100">購入する</button>
+      </div>
+
+      <!-- ダイヤの剣 -->
+      <div class="shop-item">
+        <div class="sword-icon sword-diamond">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ダイヤの剣</div>
+          <div class="shop-item-price">🪙 500コイン</div>
+        </div>
+        <button class="shop-buy-btn" id="btn-buy-diamond" data-item="diamond" data-cost="500">購入する</button>
+      </div>
+
+      <!-- ネザライトの剣 -->
+      <div class="shop-item">
+        <div class="sword-icon sword-netherite">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ネザライトの剣</div>
+          <div class="shop-item-price">🪙 1000コイン</div>
+        </div>
+        <button class="shop-buy-btn" id="btn-buy-netherite" data-item="netherite" data-cost="1000">購入する</button>
+      </div>
+
+      <!-- 光の剣 -->
+      <div class="shop-item">
+        <div class="sword-icon sword-light">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">光の剣</div>
+          <div class="shop-item-price">🪙 1200コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">光の波動弾を前方に発射</div>
+        </div>
+        <button class="shop-buy-btn" data-item="light" data-cost="1200">購入する</button>
+      </div>
+
+      <!-- ブラックホールソード -->
+      <div class="shop-item">
+        <div class="sword-icon sword-blackhole">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ブラックホールソード</div>
+          <div class="shop-item-price">🪙 1700コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">周囲を引き寄せ二連打ち</div>
+        </div>
+        <button class="shop-buy-btn" data-item="blackhole" data-cost="1700">購入する</button>
+      </div>
+
+      <!-- ライトニングソード -->
+      <div class="shop-item">
+        <div class="sword-icon sword-lightning">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">ライトニングソード</div>
+          <div class="shop-item-price">🪙 2000コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">光の矢を前方に乱射</div>
+        </div>
+        <button class="shop-buy-btn" data-item="lightning" data-cost="2000">購入する</button>
+      </div>
+
+    </div>
+    <div id="shop-bottom-btns">
+      <button id="btn-reset-data">削除</button>
+      <button id="btn-cheat-coin"></button>
+    </div>
+  </div>
+
+  <!-- Opening Choice -->
+  <div id="screen-op-choice" class="hidden">
+    <div class="op-choice-logo">ダンジョン<span class="z">Z</span></div>
+    <div class="op-choice-stage">STAGE 1 — ゾンビの森</div>
+    <div class="op-choice-question">オープニングムービーを<br>再生しますか？</div>
+    <div class="op-choice-btns">
+      <button class="op-btn-yes" id="btn-op-yes">見 る</button>
+      <button class="op-btn-no"  id="btn-op-no">見ない</button>
+    </div>
+  </div>
+
+  <!-- Screens -->
+  <div class="screen title hidden" id="screen-title">
+    <h1>ダンジョン<span class="z">Z</span></h1>
+    <div class="sub">ゾンビの森 — STAGE 1<br>すべてのゾンビを倒してステージをクリアせよ</div>
+    <button class="btn" id="btn-start">ゲーム開始</button>
+  </div>
+
+  <div class="screen clear hidden" id="screen-clear">
+    <h1>クリア</h1>
+    <div class="big" id="clear-big">周囲のゾンビをすべて倒した</div>
+    <div class="result" id="clear-result"></div>
+    <div class="clear-btns">
+      <button class="btn" id="btn-retry-clear">もう一度遊ぶ</button>
+      <button class="btn btn-orange" id="btn-next-stage">次のステージへ</button>
+      <button class="btn btn-teal" id="btn-home-from-clear">ホーム画面に戻る</button>
+    </div>
+  </div>
+
+  <div class="screen over hidden" id="screen-over">
+    <h1>GAME OVER</h1>
+    <div class="big">あなたは力尽きた…</div>
+    <div class="result" id="over-result"></div>
+    <button class="btn" id="btn-retry-over">リトライ</button>
+  </div>
+
+  <div id="loading">読み込み中…</div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

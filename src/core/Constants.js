@@ -1,0 +1,158 @@
+// ダンジョンZ — 全ゲームパラメータの一元管理
+// 数値はここで調整する。
+
+export const PLAYER = {
+  MAX_HP: 100,
+  MOVE_SPEED: 5.2,        // m/s
+  TURN_SPEED: 12,         // 向き補間の速さ
+  RADIUS: 0.5,            // 衝突半径
+  HEIGHT: 1.8,
+};
+
+export const SWORD = {
+  RANGE: 2.6,            // 通常攻撃が届く距離(m)
+  ARC: Math.PI * 0.7,    // 攻撃判定の左右角度(ラジアン)
+};
+
+// 武器種別定義
+export const WEAPONS = {
+  copper: {
+    name: 'ボロボロの銅の剣',
+    damage: 20, aoe: false,
+    bladeColor: 0xb87333, guardColor: 0x4a3525, glowColor: null,
+  },
+  iron: {
+    name: '鉄の剣',
+    damage: 20, aoe: false,
+    bladeColor: 0xd4d4d4, guardColor: 0x909090, glowColor: null,
+  },
+  diamond: {
+    name: 'ダイヤの剣',
+    damage: 40, aoe: false,
+    bladeColor: 0x26c6da, guardColor: 0x00acc1, glowColor: 0x003a4a,
+  },
+  netherite: {
+    name: 'ネザライトの剣',
+    damage: 40, aoe: true,
+    bladeColor: 0x8845b5, guardColor: 0x2d1640, glowColor: 0x280040,
+  },
+  light: {
+    name: '光の剣',
+    damage: 40, aoe: false,
+    bladeColor: 0xFFD700, guardColor: 0xB8860B, glowColor: 0xFFEE00,
+  },
+  blackhole: {
+    name: 'ブラックホールソード',
+    damage: 35, aoe: true,
+    bladeColor: 0x111111, guardColor: 0x220033, glowColor: 0x6600bb,
+  },
+  lightning: {
+    name: 'ライトニングソード',
+    damage: 40, aoe: false,
+    bladeColor: 0x111100, guardColor: 0x333300, glowColor: 0xFFFF00,
+  },
+};
+
+export const ZOMBIE = {
+  MAX_HP: 40,            // 銅の剣(20)で2撃（3発目までに確実に倒せる）
+  MOVE_SPEED: 2.2,       // m/s（主人公より遅い）
+  RADIUS: 0.5,
+  ATTACK_DAMAGE: 5,      // 主人公HP100 → 20回で死亡
+  ATTACK_RANGE: 1.5,     // この距離まで近づくと攻撃
+  ATTACK_COOLDOWN: 1.2,  // 攻撃間隔(秒)
+  HIT_STUN: 0.25,        // 被弾でのけぞる時間(秒)
+};
+
+export const STAGE = {
+  NAME: 'ゾンビの森',
+  ZOMBIE_COUNT: 3,
+  RADIUS: 38,            // プレイエリア半径(m)
+  TREE_COUNT: 70,
+  // ドロップ確率（合計は1.0でなくてよい。各素材を独立抽選）
+  DROP: {
+    STONE: 0.60,         // 古びた石 60%
+    ORE: 0.40,           // 鉄の鉱石 40%
+  },
+};
+
+export const BOSS = {
+  HP: 130,
+  MOVE_SPEED: 2.0,
+  ATTACK_RANGE: 3.4,
+  ATTACK_DAMAGE: 12,
+  ATTACK_COOLDOWN: 2.0,
+  WEAPON_DAMAGE: {
+    copper: 10, iron: 13, diamond: 19, netherite: 44,
+    light: 44, blackhole: 44, lightning: 44,
+  },
+};
+
+export const STAGE2 = {
+  NAME: '石バイオーム',
+  ZOMBIE_COUNT: 5,
+  RADIUS: 38,
+  DROP: { STONE: 0.65, ORE: 0.50 },
+};
+
+export const MINI_ZOMBIE = {
+  MAX_HP: 40,
+  MOVE_SPEED: 3.6,
+  RADIUS: 0.35,
+  ATTACK_DAMAGE: 5,
+  ATTACK_RANGE: 1.2,
+  ATTACK_COOLDOWN: 1.2,
+  HIT_STUN: 0.25,
+  SCALE: 0.55,
+};
+
+export const PURPLE_ZOMBIE = {
+  MAX_HP: 10,
+  MOVE_SPEED: 2.8,
+  RADIUS: 0.5,
+  ATTACK_DAMAGE: 25,
+  ATTACK_RANGE: 1.5,
+  ATTACK_COOLDOWN: 1.2,
+  HIT_STUN: 0.25,
+};
+
+export const STAGE3 = {
+  NAME: '溶岩バイオーム',
+  ZOMBIE_COUNT: 6,
+  MINI_ZOMBIE_COUNT: 2,
+  RADIUS: 38,
+  DROP: { STONE: 0.60, ORE: 0.50 },
+};
+
+export const STAGE4 = {
+  NAME: '砂漠バイオーム',
+  ZOMBIE_COUNT: 5,
+  MINI_ZOMBIE_COUNT: 5,
+  RADIUS: 38,
+  DROP: { STONE: 0.55, ORE: 0.45 },
+};
+
+export const COLORS = {
+  GROUND: 0x2f4a25,
+  FOG: 0x33502f,
+  SKY: 0x4a6b3f,
+  PLAYER_SKIN: 0xe8c49a,      // 白人男性肌色
+  PLAYER_CLOTH: 0x111111,     // 黒Tシャツ
+  PLAYER_PANTS: 0x3355bb,     // 青デニム
+  PLAYER_PANTS_DARK: 0x243a88,// デニム破れ影色
+  PLAYER_HAIR: 0x2a180a,      // 暗い茶髪
+  ZOMBIE_SKIN: 0x8aac78,
+  ZOMBIE_SKIN_DARK: 0x5a7848,
+  ZOMBIE_CLOTH: 0x4a3c2c,
+  ZOMBIE_PANTS: 0x383030,
+  SWORD_BLADE: 0xb87333,
+  SWORD_HILT: 0x4a3525,
+  TREE_TRUNK: 0x5c3d1e,       // リアルな樹皮
+  TREE_TRUNK_DARK: 0x3a2410,  // 樹皮の影
+  TREE_LEAF: 0x1e4a15,        // 深い森の緑
+  TREE_LEAF2: 0x2d6020,       // 中間緑
+  TREE_LEAF3: 0x3d7828,       // 明るい緑
+  TREE_LEAF4: 0x4a6818,       // 黄緑
+  GROUND: 0x243818,
+  GROUND_PATCH: 0x2e4820,
+  ROCK: 0x787068,
+};
