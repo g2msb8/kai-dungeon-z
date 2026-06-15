@@ -65,8 +65,22 @@ export class Game {
     const move  = this.inputToWorld(joyValue);
     const doHit = this.player.update(dt, move, this.bounds);
     if (doHit) this.zombies.resolveAttack(this.player);
-    const dmg = this.zombies.update(dt, this.player);
-    if (dmg > 0) this.player.takeDamage(dmg);
+
+    // 分身の更新
+    const aliveClones = [];
+    for (const c of this.player._clones) {
+      if (c.alive) {
+        const kills = c.update(dt, this.zombies.zombies);
+        for (let k = 0; k < kills; k++) this.zombies.recordKill();
+        aliveClones.push(c);
+      } else {
+        c.dispose();
+      }
+    }
+    this.player._clones = aliveClones;
+
+    const dmg = this.zombies.update(dt, this.player, this.player._clones);
+    if (dmg > 0 && !this.player.invincible) this.player.takeDamage(dmg);
     this._updateCamera(dt, false);
   }
 

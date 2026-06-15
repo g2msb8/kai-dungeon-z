@@ -79,9 +79,12 @@ function updateCoinDisplay() {
 
 // ─── 特殊技の定義 ──────────────────────────────────────────
 const SKILLS = [
-  { id: 'dash',      name: 'ダッシュ' },
-  { id: 'hyperjump', name: 'ハイパージャンプ' },
-  { id: 'meteor',    name: '隕石投げ' },
+  { id: 'dash',         name: 'ダッシュ' },
+  { id: 'hyperjump',    name: 'ハイパージャンプ' },
+  { id: 'meteor',       name: '隕石投げ' },
+  { id: 'clone',        name: '分身' },
+  { id: 'ghostarrows',  name: '爆無闇死矢' },
+  { id: 'invisibility', name: '透明化' },
 ];
 
 // ─── 所持アイテム ──────────────────────────────────────────
@@ -361,10 +364,15 @@ function activateSkill(id) {
   if (id === 'dash') {
     game.player.startDash();
   } else if (id === 'hyperjump') {
-    // 攻撃ボタンの隣に黄色いジャンプボタンを出す
     hyperBtn.classList.remove('hidden');
   } else if (id === 'meteor') {
     game.zombies.castMeteor(game.player);
+  } else if (id === 'clone') {
+    game.player.startClone(game.scene);
+  } else if (id === 'ghostarrows') {
+    game.zombies.castGhostArrows(game.player);
+  } else if (id === 'invisibility') {
+    game.player.startInvisibility();
   }
 }
 
@@ -425,7 +433,10 @@ function getBestWeapon() {
   // 明示的に装備している武器があればそれを使う
   if (equipped && owned[equipped]) return equipped;
   // フォールバック: 最強の所持武器
-  if (owned.lightning) return 'lightning';
+  if (owned.ice)       return 'ice';        // 2450
+  if (owned.inferno)   return 'inferno';    // 2300
+  if (owned.bubble)    return 'bubble';     // 2150
+  if (owned.lightning) return 'lightning';  // 2000
   if (owned.blackhole) return 'blackhole';
   if (owned.light)     return 'light';
   if (owned.netherite) return 'netherite';

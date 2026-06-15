@@ -1,4 +1,4 @@
-// 主人公。移動・向き・攻撃・HPを管理。
+// 主人公。移動・向き・攻撃・HPを管理。分身・透明化・無敵も扱う。
 import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { Sword } from './Sword.js';
@@ -28,11 +28,16 @@ export class Player {
     this._moving = false;
 
     // 特殊技状態
-    this._dashTime = 0;     // ダッシュ残り時間(秒)
-    this._jump     = null;  // ハイパージャンプ状態 {phase,t,vy,y}
+    this._dashTime  = 0;     // ダッシュ残り時間(秒)
+    this._jump      = null;  // ハイパージャンプ状態 {phase,t,vy,y}
+    this._invisTime = 0;     // 透明化残り時間(秒)
+    this.isInvisible = false;
+    this._clones    = [];    // 分身リスト
   }
 
-  get position() { return this.root.position; }
+  get position()    { return this.root.position; }
+  // インフェルノ攻撃中は無敵
+  get invincible()  { return this.sword.swinging && this.sword.weaponType === 'inferno'; }
 
   // 武器を切り替える（ショップ購入後にステージ開始前に呼ぶ）
   setWeapon(type) {
@@ -47,20 +52,38 @@ export class Player {
     if (this._dashTime > 0) this._dashTime = Math.max(0, this._dashTime - dt);
     const dashing = this._dashTime > 0;
 
+    // 透明化タイマー
+    if (this._invisTime > 0) {
+      this._invisTime -= dt;
+      if (this._invisTime <= 0) {
+        this.isInvisible = false;
+        this.root.traverse(m => {
+          if (m.isMesh && m.material) { m.material.transparent = false; m.material.opacity = 1.0; }
+        });
+      }
+    }
+
     const len = Math.hypot(move.x, move.z);
     this._moving = len > 0.05;
 
     const moveSpeed = PLAYER.MOVE_SPEED * (dashing ? SPECIAL.DASH_MULT : 1);
 
-    if (this._moving) {
+    // インフェルノ: スイング中にトルネードスピン
+    const spinY = this.sword.getBodySpinY();
+    if (spinY !== 0) {
+      this.facing += spinY * dt;
+      this.root.rotation.y = this.facing;
+    } else if (this._moving) {
       const nx = move.x / len, nz = move.z / len;
       this.root.position.x += nx * moveSpeed * dt;
       this.root.position.z += nz * moveSpeed * dt;
 
       const target = Math.atan2(-nx, -nz);
       this.facing = lerpAngle(this.facing, target, Math.min(1, PLAYER.TURN_SPEED * dt));
+      this.root.rotation.y = this.facing;
+    } else {
+      this.root.rotation.y = this.facing;
     }
-    this.root.rotation.y = this.facing;
 
     // ダイヤの剣のダッシュ前進
     const fwdVel = this.sword.getForwardVelocity();
@@ -150,6 +173,37 @@ export class Player {
     return j.y;
   }
 
+  // ─── 特殊技: 透明化 ────────────────────────────────────────
+  startInvisibility() {
+    this.isInvisible = true;
+    this._invisTime  = SPECIAL.INVIS_DURATION;
+    this.root.traverse(m => {
+      if (m.isMesh && m.material) {
+        m.material = m.material.clone();
+        m.material.transparent = true;
+        m.material.opacity = 0.12;
+      }
+    });
+    soundManager.playWhoosh();
+  }
+
+  // ─── 特殊技: 分身 ────────────────────────────────────────
+  startClone(scene) {
+    for (const c of this._clones) c.dispose();
+    this._clones = [];
+    for (let i = 0; i < SPECIAL.CLONE_COUNT; i++) {
+      const angle = (i / SPECIAL.CLONE_COUNT) * Math.PI * 2;
+      const dist  = 3.5;
+      const pos   = new THREE.Vector3(
+        this.root.position.x + Math.sin(angle) * dist,
+        0,
+        this.root.position.z + Math.cos(angle) * dist,
+      );
+      this._clones.push(new Clone(scene, pos));
+    }
+    soundManager.playWhoosh();
+  }
+
   tryAttack() {
     const started = this.sword.startSwing();
     if (started) soundManager.playAttack();
@@ -166,8 +220,18 @@ export class Player {
     this.hp     = PLAYER.MAX_HP;
     this.alive  = true;
     this.facing = 0;
-    this._dashTime = 0;
-    this._jump     = null;
+    this._dashTime  = 0;
+    this._jump      = null;
+    this._invisTime = 0;
+    this.isInvisible = false;
+    this.root.traverse(m => {
+      if (m.isMesh && m.material && m.material.transparent) {
+        m.material.transparent = false;
+        m.material.opacity = 1.0;
+      }
+    });
+    for (const c of this._clones) c.dispose();
+    this._clones = [];
     this.root.position.set(0, 0, 0);
     this.root.rotation.set(0, 0, 0);
   }
@@ -178,4 +242,91 @@ function lerpAngle(a, b, t) {
   while (diff >  Math.PI) diff -= Math.PI * 2;
   while (diff < -Math.PI) diff += Math.PI * 2;
   return a + diff * t;
+}
+
+// ─── 分身クラス ───────────────────────────────────────────────
+export class Clone {
+  constructor(scene, position) {
+    const h = buildHumanoid({
+      skin:        COLORS.PLAYER_SKIN,
+      cloth:       COLORS.PLAYER_CLOTH,
+      pants:       COLORS.PLAYER_PANTS,
+      pantsAccent: COLORS.PLAYER_PANTS_DARK,
+      skinDark:    COLORS.PLAYER_SKIN,
+      face:        'player',
+      hairColor:   COLORS.PLAYER_HAIR,
+    });
+    this.root   = h.root;
+    this.root.position.copy(position);
+    // 青い発光で分身と分かるようにする
+    this.root.traverse(m => {
+      if (m.isMesh && m.material) {
+        m.material = m.material.clone();
+        m.material.emissive = new THREE.Color(0x0044cc);
+        m.material.emissiveIntensity = 0.45;
+        m.material.transparent = true;
+        m.material.opacity = 0.82;
+      }
+    });
+
+    this.hp           = SPECIAL.CLONE_HP;
+    this.alive        = true;
+    this.attackTimer  = 0;
+    this._scene       = scene;
+    this._phase       = Math.random() * Math.PI * 2;
+    this._moving      = false;
+
+    scene.add(this.root);
+  }
+
+  get position() { return this.root.position; }
+
+  // 戻り値: このフレームでの撃破数
+  update(dt, zombies) {
+    if (!this.alive) return 0;
+    this.attackTimer = Math.max(0, this.attackTimer - dt);
+
+    // 最近接ゾンビを探す
+    let nearest = null, nearestDist = Infinity;
+    for (const z of zombies) {
+      if (!z.alive || z.dying) continue;
+      const d = Math.hypot(z.position.x - this.root.position.x, z.position.z - this.root.position.z);
+      if (d < nearestDist) { nearestDist = d; nearest = z; }
+    }
+
+    this._moving = false;
+    if (nearest) {
+      const dx = nearest.position.x - this.root.position.x;
+      const dz = nearest.position.z - this.root.position.z;
+      const dist = Math.hypot(dx, dz);
+      this.root.rotation.y = Math.atan2(dx, dz);
+
+      if (dist > SPECIAL.CLONE_ATTACK_RANGE) {
+        this.root.position.x += (dx / dist) * SPECIAL.CLONE_MOVE_SPEED * dt;
+        this.root.position.z += (dz / dist) * SPECIAL.CLONE_MOVE_SPEED * dt;
+        this._moving = true;
+      } else if (this.attackTimer <= 0) {
+        this.attackTimer = SPECIAL.CLONE_ATTACK_COOLDOWN;
+        const killed = nearest.takeDamage(SPECIAL.CLONE_DAMAGE);
+        if (killed) { soundManager.playZombieDeath(); return 1; }
+      }
+    }
+
+    // 簡易歩行アニメ
+    this._phase += dt * 2.4;
+    return 0;
+  }
+
+  takeDamage(amount) {
+    if (!this.alive) return;
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.alive = false;
+      this.dispose();
+    }
+  }
+
+  dispose() {
+    if (this._scene) { this._scene.remove(this.root); this._scene = null; }
+  }
 }

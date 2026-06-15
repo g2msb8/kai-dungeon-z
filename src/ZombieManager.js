@@ -6,7 +6,7 @@ import { Zombie } from './Zombie.js';
 import { MiniZombie } from './MiniZombie.js';
 import { PurpleZombie } from './PurpleZombie.js';
 import { Boss } from './Boss.js';
-import { STAGE, STAGE2, STAGE3, STAGE4, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL } from './core/Constants.js';
+import { STAGE, STAGE2, STAGE3, STAGE4, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL, WEAPONS } from './core/Constants.js';
 import { soundManager } from './SoundManager.js';
 
 export class ZombieManager {
@@ -131,7 +131,7 @@ export class ZombieManager {
   }
 
   // ── 毎フレーム更新 ────────────────────────────────────────
-  update(dt, player) {
+  update(dt, player, clones = []) {
     // ネザライト矢 VFX
     for (let i = this._arrows.length - 1; i >= 0; i--) {
       const a = this._arrows[i];
@@ -168,11 +168,33 @@ export class ZombieManager {
     // 隕石（特殊技）更新
     this._updateMeteors(dt);
 
+    // 透明化: ゾンビはその場でくるくる回転し、攻撃しない
+    if (player.isInvisible) {
+      for (const z of this.zombies) {
+        if (z.alive && !z.dying) z.updateSpin(dt);
+      }
+      for (let i = this.zombies.length - 1; i >= 0; i--) {
+        if (!this.zombies[i].alive) { this.zombies[i].dispose(this.scene); this.zombies.splice(i, 1); }
+      }
+      if (this._boss         && this._boss.alive)         this._boss.root.rotation.y         += dt * 3;
+      if (this._purpleZombie && this._purpleZombie.alive) this._purpleZombie.root.rotation.y += dt * 3;
+      return 0;
+    }
+
+    // 分身がいる場合: 各ゾンビが最近接ターゲット（プレイヤー or 分身）を追う
+    const activeClones = clones.filter(c => c.alive);
+
     // ゾンビ更新
     let totalDmg = 0;
     for (const z of this.zombies) {
       if (!z.alive) continue;
-      totalDmg += z.update(dt, player);
+      const target = activeClones.length > 0 ? this._nearestTarget(z, player, activeClones) : player;
+      totalDmg += z.update(dt, target);
+      // 分身への攻撃ダメージを分身に適用
+      if (target !== player && totalDmg > 0) {
+        target.takeDamage(1);
+        totalDmg = 0;
+      }
     }
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       if (!this.zombies[i].alive) {
@@ -223,6 +245,20 @@ export class ZombieManager {
   }
 
   // ── 攻撃判定 ─────────────────────────────────────────────
+  // 分身がゾンビを倒したときに呼ばれる（kill カウント更新）
+  recordKill() { this._onKill(); }
+
+  // 分身がいる場合: ゾンビの最近接ターゲットを選ぶ
+  _nearestTarget(zombie, player, clones) {
+    let best = player;
+    let bestDist = Math.hypot(player.position.x - zombie.root.position.x, player.position.z - zombie.root.position.z);
+    for (const c of clones) {
+      const d = Math.hypot(c.position.x - zombie.root.position.x, c.position.z - zombie.root.position.z);
+      if (d < bestDist) { bestDist = d; best = c; }
+    }
+    return best;
+  }
+
   resolveAttack(player) {
     const px = player.position.x, pz = player.position.z;
     const wt = player.sword.weaponType;
@@ -230,6 +266,9 @@ export class ZombieManager {
     if (wt === 'light')     { this._resolveLight(player);     return; }
     if (wt === 'blackhole') { this._resolveBlackhole(player); return; }
     if (wt === 'lightning') { this._resolveLightning(player); return; }
+    if (wt === 'bubble')    { this._resolveBubble(player);    return; }
+    if (wt === 'inferno')   { this._resolveInferno(player);   return; }
+    if (wt === 'ice')       { this._resolveIce(player);       return; }
 
     if (player.sword.isAoe) {
       const aoeRange = SWORD.RANGE * 2.2;
@@ -523,6 +562,252 @@ export class ZombieManager {
         vx: Math.sin(angle) * Math.cos(elevation) * speed,
         vy: Math.sin(elevation) * speed,
         vz: Math.cos(angle) * Math.cos(elevation) * speed,
+      });
+    }
+  }
+
+  // ── バブルソード: 周囲に泡を噴出し全方向AOE ─────────────────
+  _resolveBubble(player) {
+    const px = player.position.x, pz = player.position.z;
+    const range = 8;
+    for (const z of this.zombies) {
+      if (!z.alive || z.dying) continue;
+      if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
+      if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
+    }
+    this._hitBossIfInRange(px, pz, player, range);
+    this._hitPurpleIfInRange(px, pz, player, range);
+    this._spawnBubbleVfx(player.position);
+  }
+
+  _spawnBubbleVfx(pos) {
+    const COLS = [0x40e0d0, 0x87ceeb, 0x00ced1, 0xe0f7ff, 0xb2ebf2];
+    for (let i = 0; i < 40; i++) {
+      const angle     = (i / 40) * Math.PI * 2 + rand(-0.15, 0.15);
+      const elevation = rand(0.1, Math.PI * 0.8);
+      const speed     = 4 + Math.random() * 5;
+      const size      = 0.18 + Math.random() * 0.12;
+      const geo  = new THREE.SphereGeometry(size, 6, 6);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 5] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, pos.y + 1.2, pos.z);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 1.2,
+        vx: Math.sin(angle) * Math.cos(elevation) * speed,
+        vy: Math.sin(elevation) * speed + 1.5,
+        vz: Math.cos(angle) * Math.cos(elevation) * speed,
+        gravity: false,
+      });
+    }
+  }
+
+  // ── インフェルノソード: トルネード爆発 + 122本の炎の矢 ───────
+  _resolveInferno(player) {
+    const px = player.position.x, pz = player.position.z;
+    const range = SPECIAL.INFERNO_RADIUS;
+    for (const z of this.zombies) {
+      if (!z.alive || z.dying) continue;
+      if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
+      if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
+      else this._spawnRedAuraVfx(z.position);
+    }
+    this._hitBossIfInRange(px, pz, player, range);
+    this._hitPurpleIfInRange(px, pz, player, range);
+    this._spawnInfernoVfx(player.position);
+  }
+
+  _spawnInfernoVfx(pos) {
+    const FIRE = [0xff4500, 0xff6600, 0xffaa00, 0xff0000, 0xff8800];
+    // 渦巻きトルネード粒子 (内側から外側に爆発)
+    for (let i = 0; i < 50; i++) {
+      const angle = (i / 50) * Math.PI * 2;
+      const r     = 0.5 + Math.random() * 2.5;
+      const speed = 5 + Math.random() * 8;
+      const geo  = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+      const mat  = new THREE.MeshBasicMaterial({ color: FIRE[i % 5] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x + Math.sin(angle) * r, pos.y + Math.random() * 2, pos.z + Math.cos(angle) * r);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.7,
+        vx: Math.sin(angle) * speed,
+        vy: 2 + Math.random() * 4,
+        vz: Math.cos(angle) * speed,
+        gravity: true,
+      });
+    }
+    // 122本の炎の矢 (全方向ランダム)
+    for (let i = 0; i < SPECIAL.INFERNO_ARROW_COUNT; i++) {
+      const angle     = Math.random() * Math.PI * 2;
+      const elevation = (Math.random() - 0.3) * Math.PI * 0.4;
+      const speed     = 15 + Math.random() * 12;
+      const geo  = new THREE.BoxGeometry(0.06, 0.06, 0.38);
+      const mat  = new THREE.MeshBasicMaterial({ color: FIRE[i % 5] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, pos.y + 1.1, pos.z);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.85,
+        vx: Math.sin(angle) * Math.cos(elevation) * speed,
+        vy: Math.sin(elevation) * speed,
+        vz: Math.cos(angle) * Math.cos(elevation) * speed,
+        gravity: false,
+      });
+    }
+  }
+
+  _spawnRedAuraVfx(pos) {
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const geo  = new THREE.BoxGeometry(0.10, 0.10, 0.10);
+      const mat  = new THREE.MeshBasicMaterial({ color: 0xff2200 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x, pos.y + 1.0 + Math.random(), pos.z);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.45,
+        vx: Math.sin(angle) * 2, vy: 2 + Math.random() * 2, vz: Math.cos(angle) * 2,
+        gravity: true,
+      });
+    }
+  }
+
+  // ── アイスソード: 各ゾンビに氷柱20本を集中 ─────────────────
+  _resolveIce(player) {
+    const px = player.position.x, pz = player.position.z;
+    const range = 10;
+    // プレイヤーオーラ VFX
+    this._spawnIceAuraVfx(player.position);
+    for (const z of this.zombies) {
+      if (!z.alive || z.dying) continue;
+      if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
+      this._spawnIcePillarVfx(player.position, z.position);
+      if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
+    }
+    this._hitBossIfInRange(px, pz, player, range);
+    this._hitPurpleIfInRange(px, pz, player, range);
+  }
+
+  _spawnIceAuraVfx(pos) {
+    const COLS = [0xadd8e6, 0xe0f7ff, 0x87ceeb, 0xffffff];
+    for (let i = 0; i < 20; i++) {
+      const angle = (i / 20) * Math.PI * 2;
+      const geo  = new THREE.BoxGeometry(0.08, 0.08, 0.08);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 4] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos.x + Math.sin(angle) * 1.2, pos.y + 0.8 + Math.random(), pos.z + Math.cos(angle) * 1.2);
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.6,
+        vx: Math.sin(angle) * 0.5, vy: 1.5 + Math.random(), vz: Math.cos(angle) * 0.5,
+        gravity: false,
+      });
+    }
+  }
+
+  _spawnIcePillarVfx(from, to) {
+    const COLS = [0xadd8e6, 0xe0f7ff, 0x87ceeb, 0xffffff, 0xb2fafa];
+    const dx = to.x - from.x, dz = to.z - from.z;
+    const dist = Math.max(0.1, Math.hypot(dx, dz));
+    const nx = dx / dist, nz = dz / dist;
+    for (let i = 0; i < 20; i++) {
+      const offset = rand(-0.5, 0.5);
+      const speed  = 10 + Math.random() * 6;
+      const geo  = new THREE.BoxGeometry(0.07, 0.38, 0.07);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 5] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        from.x + Math.random() * 2 - 1,
+        from.y + 0.8 + Math.random() * 1.2,
+        from.z + Math.random() * 2 - 1,
+      );
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 0.55,
+        vx: nx * speed + offset,
+        vy: (Math.random() - 0.3) * 3,
+        vz: nz * speed + offset,
+        gravity: false,
+      });
+    }
+  }
+
+  // ── 特殊技「爆無闇死矢」: 幽霊2体 + 紫矢10本 ───────────────
+  castGhostArrows(player) {
+    const px = player.position.x, pz = player.position.z;
+    // 射程内のゾンビを最大10体選ぶ（近い順）
+    const targets = [
+      ...this.zombies.filter(z => z.alive && !z.dying),
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ]
+      .filter(z => Math.hypot(z.position.x - px, z.position.z - pz) <= SPECIAL.GHOST_RADIUS)
+      .sort((a, b) => Math.hypot(a.position.x - px, a.position.z - pz) - Math.hypot(b.position.x - px, b.position.z - pz))
+      .slice(0, SPECIAL.GHOST_COUNT * SPECIAL.GHOST_ARROW_COUNT);
+
+    // 幽霊VFX (2体: プレイヤー左右に出現)
+    for (let g = 0; g < SPECIAL.GHOST_COUNT; g++) {
+      const gAngle = player.facing + (g === 0 ? -Math.PI / 3 : Math.PI / 3);
+      const gx = px + Math.sin(gAngle) * 2.5;
+      const gz = pz + Math.cos(gAngle) * 2.5;
+      this._spawnGhostVfx(new THREE.Vector3(gx, 0, gz));
+
+      // 各幽霊から矢を5本発射
+      for (let a = 0; a < SPECIAL.GHOST_ARROW_COUNT; a++) {
+        const angle = gAngle + (a / SPECIAL.GHOST_ARROW_COUNT) * Math.PI * 2;
+        const speed = 14 + Math.random() * 8;
+        const geo  = new THREE.BoxGeometry(0.06, 0.06, 0.45);
+        const mat  = new THREE.MeshBasicMaterial({ color: a % 2 === 0 ? 0xaa00ff : 0x6600cc });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(gx, 1.2, gz);
+        this.scene.add(mesh);
+        this._particles.push({
+          mesh, life: 0.9,
+          vx: -Math.sin(angle) * speed,
+          vy: (Math.random() - 0.3) * 2,
+          vz: -Math.cos(angle) * speed,
+          gravity: false,
+        });
+      }
+    }
+
+    // ゾンビを時間差でvanish
+    targets.forEach((z, i) => {
+      setTimeout(() => {
+        if (z.alive && !z.dying) {
+          if (z.vanish) {
+            z.vanish();
+            soundManager.playZombieDeath();
+            this._onKill();
+          } else {
+            if (z.takeDamage(9999)) { soundManager.playZombieDeath(); this._onKill(); }
+          }
+        }
+      }, i * 180);
+    });
+  }
+
+  _spawnGhostVfx(pos) {
+    const COLS = [0xaa00ff, 0xcc44ff, 0xdd88ff, 0x880088];
+    for (let i = 0; i < 28; i++) {
+      const angle = (i / 28) * Math.PI * 2;
+      const ht    = 0.4 + (i % 4) * 0.45;
+      const geo  = new THREE.BoxGeometry(0.09, 0.09, 0.09);
+      const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 4] });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        pos.x + Math.sin(angle) * 0.35,
+        pos.y + ht,
+        pos.z + Math.cos(angle) * 0.35,
+      );
+      this.scene.add(mesh);
+      this._particles.push({
+        mesh, life: 1.0 + Math.random() * 0.4,
+        vx: Math.sin(angle) * 0.3,
+        vy: 0.5 + Math.random() * 0.8,
+        vz: Math.cos(angle) * 0.3,
+        gravity: false,
       });
     }
   }

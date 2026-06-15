@@ -30,7 +30,8 @@ export class Zombie {
     this.frozen = false;
     this._frozenX = 0;
     this._frozenZ = 0;
-    this._vaporize = false; // 蒸発death演出フラグ
+    this._vaporize = false;   // 蒸発death演出フラグ
+    this._vanishing = false;  // 爆無闇死矢: パッと消える演出フラグ
   }
 
   get position() { return this.root.position; }
@@ -39,6 +40,13 @@ export class Zombie {
   update(dt, player) {
     if (this.dying) {
       this.deathT += dt;
+      if (this._vanishing) {
+        // パッと消える: 0.35秒でスケールゼロ
+        const t = Math.min(1, this.deathT / 0.35);
+        this.root.scale.setScalar(Math.max(0.001, 1 - t));
+        if (t >= 1) this.alive = false;
+        return 0;
+      }
       if (this._vaporize) {
         // 蒸発: 上昇しながら縮んで回転して消える
         const t = Math.min(1, this.deathT / 0.9);
@@ -193,6 +201,21 @@ export class Zombie {
     this.frozen = true;
     this._frozenX = this.root.position.x;
     this._frozenZ = this.root.position.z;
+  }
+
+  // ─── 爆無闇死矢: パッと消えて死亡 ────────────────────────────
+  vanish() {
+    if (this.dying) return;
+    this._vanishing = true;
+    this.dying  = true;
+    this.deathT = 0;
+  }
+
+  // ─── 透明化: その場でくるくる回転（ZombieManagerから呼ぶ） ──
+  updateSpin(dt) {
+    this._phase += dt * 2.4;
+    this.root.rotation.y += dt * 4;
+    this._animateShamble(dt, false);
   }
 
   // ─── 隕石: 蒸発して死亡 ────────────────────────────────────

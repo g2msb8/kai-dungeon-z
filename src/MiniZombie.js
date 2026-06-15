@@ -25,6 +25,7 @@ export class MiniZombie {
     this.facing = 0;
     this._moving = false;
     this._lunging = false;
+    this._vanishing = false;
   }
 
   get position() { return this.root.position; }
@@ -32,6 +33,12 @@ export class MiniZombie {
   update(dt, player) {
     if (this.dying) {
       this.deathT += dt;
+      if (this._vanishing) {
+        const t = Math.min(1, this.deathT / 0.35);
+        this.root.scale.setScalar(Math.max(0.001, (1 - t) * MINI_ZOMBIE.SCALE));
+        if (t >= 1) this.alive = false;
+        return 0;
+      }
       const t = Math.min(1, this.deathT / 0.8);
       this.root.rotation.x = t * (Math.PI / 2.2);
       this.root.position.y = -t * 0.5;
@@ -148,6 +155,19 @@ export class MiniZombie {
   die() {
     this.dying = true;
     this.deathT = 0;
+  }
+
+  vanish() {
+    if (this.dying) return;
+    this._vanishing = true;
+    this.dying  = true;
+    this.deathT = 0;
+  }
+
+  updateSpin(dt) {
+    this._phase += dt * 3.0;
+    this.root.rotation.y += dt * 4;
+    this._animateShamble(dt, false);
   }
 
   dispose(scene) {

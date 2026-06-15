@@ -33,6 +33,26 @@ export const SPECIAL = {
   METEOR_SIZE: 0.9,      // 隕石半径（直径=プレイヤー身長相当）
   METEOR_SPAWN_Y: 13,    // 出現高度
   METEOR_FALL_GRAVITY: 30,
+
+  // インフェルノソード
+  INFERNO_ARROW_COUNT: 122,
+  INFERNO_RADIUS: 28,
+
+  // 分身
+  CLONE_COUNT: 3,
+  CLONE_HP: 2,
+  CLONE_ATTACK_RANGE: 2.0,
+  CLONE_ATTACK_COOLDOWN: 1.5,
+  CLONE_MOVE_SPEED: 4.0,
+  CLONE_DAMAGE: 20,
+
+  // 爆無闇死矢
+  GHOST_COUNT: 2,
+  GHOST_ARROW_COUNT: 5,
+  GHOST_RADIUS: 15,
+
+  // 透明化
+  INVIS_DURATION: 5.0,
 };
 
 // 武器種別定義
@@ -71,6 +91,21 @@ export const WEAPONS = {
     name: 'ライトニングソード',
     damage: 40, aoe: false,
     bladeColor: 0x111100, guardColor: 0x333300, glowColor: 0xFFFF00,
+  },
+  bubble: {
+    name: 'バブルソード',
+    damage: 45, aoe: true,
+    bladeColor: 0x40e0d0, guardColor: 0x008b8b, glowColor: 0x00ced1,
+  },
+  inferno: {
+    name: 'インフェルノソード',
+    damage: 50, aoe: true,
+    bladeColor: 0xff4500, guardColor: 0x8b0000, glowColor: 0xff6600,
+  },
+  ice: {
+    name: 'アイスソード',
+    damage: 45, aoe: true,
+    bladeColor: 0xadd8e6, guardColor: 0x4682b4, glowColor: 0x87ceeb,
   },
 };
 

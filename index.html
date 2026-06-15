@@ -375,6 +375,27 @@
     .sword-blackhole .sw-pommel{ width: 16px; height: 11px; background: #2a0044; }
 
     /* ライトニングソード (黒+黄) */
+    /* バブルソード */
+    .sword-bubble .sw-tip   { border-bottom: 16px solid #80deea; }
+    .sword-bubble .sw-blade { height: 50px; background: linear-gradient(180deg, #e0f7fa, #40e0d0); box-shadow: 0 0 8px 3px rgba(0,206,209,0.55); }
+    .sword-bubble .sw-guard { width: 38px; background: #00838f; }
+    .sword-bubble .sw-handle{ height: 20px; background: #5a8a8a; }
+    .sword-bubble .sw-pommel{ width: 16px; height: 11px; background: #40e0d0; }
+
+    /* インフェルノソード */
+    .sword-inferno .sw-tip   { border-bottom: 16px solid #ff6600; }
+    .sword-inferno .sw-blade { height: 50px; background: linear-gradient(180deg, #ffcc80, #ff4500); box-shadow: 0 0 10px 3px rgba(255,69,0,0.6); }
+    .sword-inferno .sw-guard { width: 38px; background: #8b0000; }
+    .sword-inferno .sw-handle{ height: 20px; background: #4a1a0a; }
+    .sword-inferno .sw-pommel{ width: 16px; height: 11px; background: #cc2200; }
+
+    /* アイスソード */
+    .sword-ice .sw-tip   { border-bottom: 16px solid #e0f7ff; }
+    .sword-ice .sw-blade { height: 50px; background: linear-gradient(180deg, #e0f7ff, #add8e6); box-shadow: 0 0 8px 3px rgba(135,206,235,0.55); }
+    .sword-ice .sw-guard { width: 38px; background: #4682b4; }
+    .sword-ice .sw-handle{ height: 20px; background: #2a5a8a; }
+    .sword-ice .sw-pommel{ width: 16px; height: 11px; background: #87ceeb; }
+
     .sword-lightning .sw-tip   { border-bottom: 16px solid #2a2a10; }
     .sword-lightning .sw-blade {
       height: 50px; width: 14px;
@@ -804,6 +825,57 @@
         <button class="shop-buy-btn" data-item="lightning" data-cost="2000">購入する</button>
       </div>
 
+      <!-- バブルソード -->
+      <div class="shop-item">
+        <div class="sword-icon sword-bubble">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">バブルソード</div>
+          <div class="shop-item-price">🪙 2150コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">泡を空に向けて噴出し周囲を一斉攻撃</div>
+        </div>
+        <button class="shop-buy-btn" data-item="bubble" data-cost="2150">購入する</button>
+      </div>
+
+      <!-- インフェルノソード -->
+      <div class="shop-item">
+        <div class="sword-icon sword-inferno">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">インフェルノソード</div>
+          <div class="shop-item-price">🪙 2300コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">トルネード帯電後、122本の炎の矢を乱射</div>
+        </div>
+        <button class="shop-buy-btn" data-item="inferno" data-cost="2300">購入する</button>
+      </div>
+
+      <!-- アイスソード -->
+      <div class="shop-item">
+        <div class="sword-icon sword-ice">
+          <div class="sw-tip"></div>
+          <div class="sw-blade"></div>
+          <div class="sw-guard"></div>
+          <div class="sw-handle"></div>
+          <div class="sw-pommel"></div>
+        </div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">アイスソード</div>
+          <div class="shop-item-price">🪙 2450コイン</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">氷柱20本を各ゾンビに集中させて撃破</div>
+        </div>
+        <button class="shop-buy-btn" data-item="ice" data-cost="2450">購入する</button>
+      </div>
+
     </div>
     <div id="shop-bottom-btns">
       <button id="btn-reset-data">削除</button>
@@ -853,6 +925,39 @@
           <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">近くのゾンビ2体に隕石を落とす</div>
         </div>
         <button class="skill-buy-btn" data-skill="meteor" data-cost="1200">購入する</button>
+      </div>
+
+      <!-- 分身 -->
+      <div class="shop-item">
+        <div class="skill-icon">👥</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">分身</div>
+          <div class="shop-item-price">🪙 1,300円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">分身3体召喚。ゾンビを攻撃し2回被弾で消える</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="clone" data-cost="1300">購入する</button>
+      </div>
+
+      <!-- 爆無闇死矢 -->
+      <div class="shop-item">
+        <div class="skill-icon">👻</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">爆無闇死矢</div>
+          <div class="shop-item-price">🪙 1,450円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">幽霊2体が紫の矢5本ずつ発射。当たった敵は消滅</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="ghostarrows" data-cost="1450">購入する</button>
+      </div>
+
+      <!-- 透明化 -->
+      <div class="shop-item">
+        <div class="skill-icon">🫥</div>
+        <div class="shop-item-info">
+          <div class="shop-item-name">透明化</div>
+          <div class="shop-item-price">🪙 1,500円</div>
+          <div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px;">5秒間透明になる。敵には見えなくなり回転する</div>
+        </div>
+        <button class="skill-buy-btn" data-skill="invisibility" data-cost="1500">購入する</button>
       </div>
 
     </div>

@@ -59,6 +59,25 @@ const LIGHTNING_SW = {
   ARM_SLASH: -2.70,
   COOLDOWN: 1.55,
 };
+const BUBBLE_SW = {
+  T_RAISE: 0.20, T_CHARGE: 0.50, T_FIRE: 0.80, T_TOTAL: 1.30,
+  ARM_RAISED: 2.00,
+  COOLDOWN: 2.0,
+};
+const ICE_SW = {
+  T_RAISE: 0.20, T_GLOW: 0.50, T_FIRE: 0.90, T_TOTAL: 1.50,
+  ARM_RAISED: 1.80,
+  COOLDOWN: 2.5,
+};
+const INFERNO_SW = {
+  // 0〜1.0: スピン、1.0〜3.0: 赤いチャージ、3.0: 発射
+  T_SPIN_END: 1.0,
+  T_CHARGE_END: 3.0,
+  T_FIRE: 3.0,
+  T_TOTAL: 3.5,
+  ARM_RAISED: 2.10,
+  COOLDOWN: 6.0,
+};
 
 // ─── 剣メッシュ生成ヘルパー ─────────────────────────────────
 function _makeSwordGroup(bladeMat, guardColor, addNick) {
@@ -234,6 +253,9 @@ export class Sword {
       case 'light':     return this._updateLight();
       case 'blackhole': return this._updateBlackhole();
       case 'lightning': return this._updateLightning();
+      case 'bubble':    return this._updateBubble();
+      case 'ice':       return this._updateIce();
+      case 'inferno':   return this._updateInferno();
       default:          return this._updateCopper();
     }
   }
@@ -525,6 +547,95 @@ export class Sword {
       }
     }
 
+    if (this.swingT >= p.T_TOTAL) {
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = 0.35;
+      this._endSwing(p.COOLDOWN);
+    }
+    return doHit;
+  }
+
+  // インフェルノのトルネードスピン速度を返す（Player.jsが向き更新に使用）
+  getBodySpinY() {
+    if (this.weaponType !== 'inferno' || !this.swinging) return 0;
+    const t = this.swingT;
+    if (t < INFERNO_SW.T_SPIN_END)   return 18;
+    if (t < INFERNO_SW.T_CHARGE_END) return 4;
+    return 0;
+  }
+
+  // ══ bubble: 剣を空に向けて泡を噴出 ══════════════════════════
+  _updateBubble() {
+    const p = BUBBLE_SW;
+    let doHit = false;
+    if (this.swingT < p.T_RAISE) {
+      const ph = this.swingT / p.T_RAISE;
+      this.armR.rotation.x = lerp(this.restRot, p.ARM_RAISED, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(0.35, 1.5, ph);
+    } else if (this.swingT < p.T_CHARGE) {
+      this.armR.rotation.x = p.ARM_RAISED;
+      const ph = (this.swingT - p.T_RAISE) / (p.T_CHARGE - p.T_RAISE);
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(1.5, 3.5, ph);
+    } else if (this.swingT < p.T_FIRE) {
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = 4.5;
+      if (this._swingHitCount < 1) { this._swingHitCount++; doHit = true; }
+    } else {
+      const ph = (this.swingT - p.T_FIRE) / (p.T_TOTAL - p.T_FIRE);
+      this.armR.rotation.x = lerp(p.ARM_RAISED, this.restRot, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(4.5, 0.35, ph);
+    }
+    if (this.swingT >= p.T_TOTAL) {
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = 0.35;
+      this._endSwing(p.COOLDOWN);
+    }
+    return doHit;
+  }
+
+  // ══ ice: 水色オーラで氷柱を召喚 ════════════════════════════
+  _updateIce() {
+    const p = ICE_SW;
+    let doHit = false;
+    if (this.swingT < p.T_RAISE) {
+      const ph = this.swingT / p.T_RAISE;
+      this.armR.rotation.x = lerp(this.restRot, p.ARM_RAISED, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(0.35, 1.2, ph);
+    } else if (this.swingT < p.T_GLOW) {
+      this.armR.rotation.x = p.ARM_RAISED;
+      const ph = (this.swingT - p.T_RAISE) / (p.T_GLOW - p.T_RAISE);
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(1.2, 4.0, ph);
+    } else if (this.swingT < p.T_FIRE) {
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = 4.0 + Math.sin(this.swingT * 30) * 0.5;
+      if (this._swingHitCount < 1) { this._swingHitCount++; doHit = true; }
+    } else {
+      const ph = (this.swingT - p.T_FIRE) / (p.T_TOTAL - p.T_FIRE);
+      this.armR.rotation.x = lerp(p.ARM_RAISED, this.restRot, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(4.0, 0.35, ph);
+    }
+    if (this.swingT >= p.T_TOTAL) {
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = 0.35;
+      this._endSwing(p.COOLDOWN);
+    }
+    return doHit;
+  }
+
+  // ══ inferno: トルネードスピン → 赤チャージ → 122本の炎の矢 ══
+  _updateInferno() {
+    const p = INFERNO_SW;
+    let doHit = false;
+    if (this.swingT < p.T_SPIN_END) {
+      const ph = this.swingT / p.T_SPIN_END;
+      this.armR.rotation.x = lerp(this.restRot, p.ARM_RAISED, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(0.35, 2.5, ph);
+    } else if (this.swingT < p.T_CHARGE_END) {
+      this.armR.rotation.x = p.ARM_RAISED;
+      const ph = (this.swingT - p.T_SPIN_END) / (p.T_CHARGE_END - p.T_SPIN_END);
+      const flicker = Math.sin(this.swingT * 22) * 0.4;
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(2.5, 6.0, ph) + flicker;
+    } else if (this.swingT < p.T_TOTAL) {
+      if (this._swingHitCount < 1) { this._swingHitCount++; doHit = true; }
+      const ph = (this.swingT - p.T_FIRE) / (p.T_TOTAL - p.T_FIRE);
+      this.armR.rotation.x = lerp(p.ARM_RAISED, this.restRot, easeOut(ph));
+      if (this._bladeMat) this._bladeMat.emissiveIntensity = lerp(6.0, 0.35, ph);
+    }
     if (this.swingT >= p.T_TOTAL) {
       if (this._bladeMat) this._bladeMat.emissiveIntensity = 0.35;
       this._endSwing(p.COOLDOWN);
