@@ -262,6 +262,93 @@
       background: linear-gradient(180deg, #ef9a9a, #c62828);
       box-shadow: 0 4px 0 #7f0000, 0 6px 18px rgba(0,0,0,0.35);
     }
+    #btn-home-train-enter {
+      background: linear-gradient(180deg, #80cbc4, #00695c);
+      box-shadow: 0 4px 0 #004d40, 0 6px 18px rgba(0,0,0,0.35);
+    }
+
+    /* ===== 修行UI ===== */
+    #home-train-ui {
+      position: absolute; bottom: 138px; left: 0; right: 0; z-index: 5;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      pointer-events: none;
+    }
+    #home-train-timer {
+      font-size: 20px; font-weight: bold; color: #b2ebf2;
+      text-shadow: 0 0 12px rgba(0,188,212,0.8), 0 1px 3px #000;
+      letter-spacing: 2px;
+    }
+    #home-train-timer.hidden { display: none; }
+    #btn-home-train-stop {
+      pointer-events: auto; cursor: pointer;
+      padding: 12px 28px; font-size: 16px; font-weight: bold; letter-spacing: 2px;
+      color: #fff; border: none; border-radius: 12px;
+      background: linear-gradient(180deg, #ef9a9a, #b71c1c);
+      box-shadow: 0 3px 0 #7f0000, 0 5px 14px rgba(0,0,0,0.4);
+    }
+    #btn-home-train-stop:active { transform: scale(0.93); }
+    #btn-home-train-stop.hidden { display: none; }
+
+    /* ─── レベルアップ通知 ─── */
+    #home-levelup-popup {
+      position: fixed; left: 50%; top: 38%; transform: translateX(-50%);
+      z-index: 45; pointer-events: none;
+      font-size: 32px; font-weight: bold; letter-spacing: 4px;
+      color: #ffd740; white-space: nowrap;
+      text-shadow: 0 0 24px rgba(255,200,0,0.9), 0 0 8px #ff8f00, 0 2px 4px #000;
+    }
+    #home-levelup-popup.hidden { display: none; }
+    @keyframes levelupAnim {
+      0%   { opacity:0; transform: translateX(-50%) translateY(18px) scale(0.78); }
+      18%  { opacity:1; transform: translateX(-50%) translateY(0)    scale(1.08); }
+      24%  { transform: translateX(-50%) translateY(0) scale(1.0); }
+      72%  { opacity:1; transform: translateX(-50%) translateY(0) scale(1.0); }
+      100% { opacity:0; transform: translateX(-50%) translateY(-20px) scale(0.94); }
+    }
+
+    /* ─── レベル10 MAX エフェクト ─── */
+    #home-maxlevel-overlay {
+      position: fixed; inset: 0; z-index: 46; pointer-events: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    #home-maxlevel-overlay.hidden { display: none; }
+    .ml-flash {
+      position: absolute; inset: 0;
+      background: radial-gradient(circle, rgba(255,215,0,0.55) 0%, rgba(255,100,0,0.0) 70%);
+      animation: mlFlash 3.5s ease-out forwards;
+    }
+    @keyframes mlFlash {
+      0%   { opacity:0; }
+      12%  { opacity:1; }
+      40%  { opacity:0.6; }
+      100% { opacity:0; }
+    }
+    .ml-text {
+      position: relative; z-index:1;
+      font-size: 40px; font-weight: bold; letter-spacing: 5px;
+      color: #fff8e1; line-height: 1.4; text-align: center;
+      text-shadow: 0 0 36px #ffd740, 0 0 16px #ff8f00, 0 2px 6px #000;
+      animation: mlText 3.5s ease-out forwards;
+    }
+    @keyframes mlText {
+      0%   { opacity:0; transform:scale(0.5); }
+      20%  { opacity:1; transform:scale(1.12); }
+      30%  { transform:scale(1.0); }
+      75%  { opacity:1; }
+      100% { opacity:0; transform:scale(1.05) translateY(-24px); }
+    }
+    .ml-stars {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    .ml-star {
+      position: absolute; left: 50%; top: 50%;
+      font-size: 22px;
+      animation: mlStar var(--dur) ease-out forwards;
+    }
+    @keyframes mlStar {
+      0%   { opacity:1; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0px) scale(1); }
+      100% { opacity:0; transform: translate(-50%,-50%) rotate(var(--a)) translateY(var(--r)) scale(0.4); }
+    }
 
     /* ===== Shop Screen ===== */
     .shop-screen {
@@ -662,9 +749,24 @@
     </div>
     <!-- 近接アクションボタン -->
     <div id="home-proximity-wrap">
-      <button id="btn-home-shop-enter" class="home-action-btn hidden">🏪 ショップを開く</button>
+      <button id="btn-home-shop-enter"   class="home-action-btn hidden">🏪 ショップを開く</button>
       <button id="btn-home-battle-enter" class="home-action-btn hidden">⚔️ バトルに行く</button>
+      <button id="btn-home-train-enter"  class="home-action-btn hidden">🧘 修行をする</button>
     </div>
+    <!-- 修行中UI -->
+    <div id="home-train-ui">
+      <div id="home-train-timer" class="hidden"></div>
+      <button id="btn-home-train-stop" class="hidden">修行をやめる</button>
+    </div>
+  </div>
+
+  <!-- レベルアップ通知（ホーム画面・body直下） -->
+  <div id="home-levelup-popup" class="hidden"></div>
+  <!-- レベル10 MAXエフェクト -->
+  <div id="home-maxlevel-overlay" class="hidden">
+    <div class="ml-flash"></div>
+    <div class="ml-text">修行完成！<br>攻撃力 MAX！</div>
+    <div class="ml-stars" id="ml-stars"></div>
   </div>
 
   <!-- Shop Menu (剣のお店 / 特殊技のお店) -->

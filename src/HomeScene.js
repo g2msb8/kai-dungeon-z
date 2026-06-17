@@ -28,8 +28,14 @@ export class HomeScene {
     this._joy          = { x: 0, y: 0 };
     this.nearShop      = false;
     this.nearBattle    = false;
+    this.nearTraining  = false;
     this._shopPos      = null;
     this._jetPos       = null;
+    this._trainingPos  = null;
+    this._waterfallTex = null;
+    this._splashParts  = [];
+    this._isSitting    = false;
+    this._elapsed      = 0;
 
     this._build();
     this._onResize();
@@ -46,6 +52,7 @@ export class HomeScene {
     this._buildLamps();
     this._buildShop();
     this._buildJet();
+    this._buildTrainingSpot();
     this._buildPlayer();
   }
 
@@ -404,48 +411,84 @@ export class HomeScene {
 
   // ─── 毎フレーム更新 ─────────────────────────────────────────
   _update(dt) {
+    this._elapsed += dt;
+
     // ファン回転
     this._fanAngle += dt * 3.2;
     if (this._fanBlades) this._fanBlades.rotation.y = this._fanAngle;
 
-    if (!this._humanoid) return;
+    // 滝テクスチャスクロール
+    if (this._waterfallTex) this._waterfallTex.offset.y -= dt * 0.85;
 
-    // setJoy() で毎フレーム更新される合成入力を使う
-    const joy   = this._joy;
-    const moveX = joy.x ?? 0;
-    const moveZ = joy.y ?? 0;
-    const len   = Math.hypot(moveX, moveZ);
-    const moving = len > 0.05;
-
-    if (moving) {
-      const speed = 4.8;
-      const nx = moveX / len, nz = moveZ / len;
-      const pos = this._humanoid.root.position;
-      pos.x += nx * speed * dt;
-      pos.z += nz * speed * dt;
-
-      // 部屋の壁（半径17m）で制限
-      const d = Math.hypot(pos.x, pos.z);
-      if (d > 17) { pos.x *= 17 / d; pos.z *= 17 / d; }
-
-      // 向き補間
-      const target = Math.atan2(-nx, -nz);
-      this._playerFacing = _lerpAngle(this._playerFacing, target, Math.min(1, 12 * dt));
-      this._humanoid.root.rotation.y = this._playerFacing;
+    // しぶき粒子ボビング
+    for (const sp of this._splashParts) {
+      sp.position.y = sp._baseY + Math.sin(this._elapsed * sp._speed + sp._offset) * 0.04;
     }
 
-    this._humanoid.update(dt, { moving });
+    if (!this._humanoid) return;
+
+    if (this._isSitting) {
+      this._humanoid.update(0, { moving: false });
+    } else {
+      // setJoy() で毎フレーム更新される合成入力を使う
+      const joy   = this._joy;
+      const moveX = joy.x ?? 0;
+      const moveZ = joy.y ?? 0;
+      const len   = Math.hypot(moveX, moveZ);
+      const moving = len > 0.05;
+
+      if (moving) {
+        const speed = 4.8;
+        const nx = moveX / len, nz = moveZ / len;
+        const pos = this._humanoid.root.position;
+        pos.x += nx * speed * dt;
+        pos.z += nz * speed * dt;
+
+        // 部屋の壁（半径17m）で制限
+        const d = Math.hypot(pos.x, pos.z);
+        if (d > 17) { pos.x *= 17 / d; pos.z *= 17 / d; }
+
+        // 向き補間
+        const target = Math.atan2(-nx, -nz);
+        this._playerFacing = _lerpAngle(this._playerFacing, target, Math.min(1, 12 * dt));
+        this._humanoid.root.rotation.y = this._playerFacing;
+      }
+
+      this._humanoid.update(dt, { moving });
+    }
 
     // カメラ追従（バトルと同じ俯瞰視点）
     const p  = this._humanoid.root.position;
 
     // 近接判定
-    this.nearShop   = this._shopPos ? p.distanceTo(this._shopPos) < 5.5 : false;
-    this.nearBattle = this._jetPos  ? p.distanceTo(this._jetPos)  < 5.5 : false;
+    this.nearShop     = this._shopPos     ? p.distanceTo(this._shopPos)     < 5.5 : false;
+    this.nearBattle   = this._jetPos      ? p.distanceTo(this._jetPos)      < 5.5 : false;
+    this.nearTraining = this._trainingPos ? p.distanceTo(this._trainingPos) < 5.5 : false;
+
     const desired = new THREE.Vector3(p.x, p.y + 4.5, p.z + 7.5);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     this._camTarget.set(p.x, p.y + 1.4, p.z - 1);
     this.camera.lookAt(this._camTarget);
+  }
+
+  // ─── 修行：あぐらポーズ ON/OFF ────────────────────────────
+  setSitting(on) {
+    if (!this._humanoid || this._isSitting === on) return;
+    this._isSitting = on;
+    const { legL, legR, armL, armR } = this._humanoid.parts;
+    if (on) {
+      this._humanoid.root.position.y = -0.58;
+      legL.rotation.set(Math.PI * 0.38, 0,  0.72);
+      legR.rotation.set(Math.PI * 0.38, 0, -0.72);
+      armL.rotation.set(0.42, 0,  0.18);
+      armR.rotation.set(0.42, 0, -0.18);
+    } else {
+      this._humanoid.root.position.y = 0;
+      legL.rotation.set(0, 0, 0);
+      legR.rotation.set(0, 0, 0);
+      armL.rotation.set(0, 0, 0);
+      armR.rotation.set(0, 0, 0);
+    }
   }
 
   // ─── テキストスプライト生成 ─────────────────────────────────
@@ -472,6 +515,183 @@ export class HomeScene {
     const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
     const sprite = new THREE.Sprite(mat);
     return sprite;
+  }
+
+  // ─── 滝テクスチャ生成 ──────────────────────────────────────
+  _makeWaterfallTexture() {
+    const W = 64, H = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.createImageData(W, H);
+    const d = img.data;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const nx = x / W, ny = y / H;
+        const streak = Math.sin(nx * Math.PI * 14) * 0.5 + 0.5;
+        const ripple = Math.sin(ny * Math.PI * 22 + nx * 6) * 0.1;
+        const b = Math.min(1, streak * 0.62 + ripple + 0.26);
+        const i = (y * W + x) * 4;
+        d[i]   = Math.round(b * 80);
+        d[i+1] = Math.round(b * 160);
+        d[i+2] = Math.round(b * 220);
+        d[i+3] = Math.round(b * 230);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(2, 2);
+    return tex;
+  }
+
+  // ─── 修行スポット（池＋滝＋竹） ─────────────────────────────
+  _buildTrainingSpot() {
+    const POS = new THREE.Vector3(-12, 0, 0);
+    this._trainingPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.PI / 2; // 中央に向く（東向き）
+
+    const stone  = new THREE.MeshStandardMaterial({ color: 0x7a7a6a, roughness: 0.95 });
+    const stDark = new THREE.MeshStandardMaterial({ color: 0x52524a, roughness: 0.95 });
+
+    // ── 崖壁（滝のバック） ──
+    const cliff = new THREE.Mesh(new THREE.BoxGeometry(5.0, 4.8, 1.0), stone);
+    cliff.position.set(0, 2.4, 2.3);
+    cliff.castShadow = true;
+    g.add(cliff);
+
+    const cliffL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.8, 1.1), stDark);
+    cliffL.position.set(-2.6, 1.9, 2.1);
+    g.add(cliffL);
+    const cliffR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.8, 1.1), stDark);
+    cliffR.position.set( 2.6, 1.9, 2.1);
+    g.add(cliffR);
+
+    // 崖上の小岩
+    const capRock = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.4, 1.1), stDark);
+    capRock.position.set(0, 5.0, 2.3);
+    g.add(capRock);
+
+    // ── 滝（アニメーション付き平面） ──
+    this._waterfallTex = this._makeWaterfallTexture();
+    const fallMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.0, 3.8),
+      new THREE.MeshStandardMaterial({
+        map: this._waterfallTex, transparent: true, opacity: 0.88,
+        roughness: 0.1, side: THREE.FrontSide,
+        emissive: 0x224488, emissiveIntensity: 0.18,
+      }),
+    );
+    fallMesh.position.set(0, 1.9, 1.78);
+    g.add(fallMesh);
+
+    // ── 池 ──
+    const pondMat = new THREE.MeshStandardMaterial({
+      color: 0x194d70, roughness: 0.05,
+      transparent: true, opacity: 0.88,
+      emissive: 0x0a3050, emissiveIntensity: 0.4,
+    });
+    const pond = new THREE.Mesh(new THREE.CircleGeometry(2.4, 36), pondMat);
+    pond.rotation.x = -Math.PI / 2;
+    pond.position.y = 0.01;
+    g.add(pond);
+
+    // 池中央のきらめき
+    const pondGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(1.0, 24),
+      new THREE.MeshStandardMaterial({
+        color: 0x60b0e0, transparent: true, opacity: 0.55,
+        emissive: 0x3080c0, emissiveIntensity: 0.7, roughness: 0.02,
+      }),
+    );
+    pondGlow.rotation.x = -Math.PI / 2;
+    pondGlow.position.y = 0.012;
+    g.add(pondGlow);
+
+    // ── しぶき粒子 ──
+    const spMat = new THREE.MeshStandardMaterial({
+      color: 0xb8e4ff, transparent: true, opacity: 0.72,
+      emissive: 0x70b8f0, emissiveIntensity: 0.5,
+    });
+    this._splashParts = [];
+    for (let i = 0; i < 14; i++) {
+      const r = Math.random() * 0.9;
+      const a = Math.random() * Math.PI * 2;
+      const s = 0.04 + Math.random() * 0.055;
+      const sp = new THREE.Mesh(new THREE.SphereGeometry(s, 5, 5), spMat);
+      sp.position.set(Math.cos(a) * r, 0.06 + Math.random() * 0.18, Math.sin(a) * r + 1.3);
+      sp._baseY  = sp.position.y;
+      sp._speed  = 0.6 + Math.random() * 1.1;
+      sp._offset = Math.random() * Math.PI * 2;
+      g.add(sp);
+      this._splashParts.push(sp);
+    }
+
+    // ── 池の周りの石 ──
+    const ROCKS = [
+      [2.1,0,-0.4],[-2.1,0,-0.3],[1.6,0,1.1],[-1.6,0,0.9],
+      [0.9,0,2.0],[-1.0,0,2.1],[2.3,0,0.8],[-2.3,0,0.7],
+      [0.2,0,2.4],[-0.4,0,2.5],
+    ];
+    ROCKS.forEach(([rx,,rz]) => {
+      const s = 0.18 + Math.random() * 0.22;
+      const r = new THREE.Mesh(
+        new THREE.BoxGeometry(s * (1 + Math.random() * 0.6), s * 0.55, s * (1 + Math.random() * 0.6)),
+        Math.random() > 0.5 ? stone : stDark,
+      );
+      r.position.set(rx, 0.1, rz);
+      r.rotation.set((Math.random()-0.5)*0.4, Math.random()*Math.PI*2, (Math.random()-0.5)*0.3);
+      r.castShadow = true;
+      g.add(r);
+    });
+
+    // ── 竹 ──
+    const bambooM = new THREE.MeshStandardMaterial({ color: 0x5a8228, roughness: 0.8 });
+    const nodeM   = new THREE.MeshStandardMaterial({ color: 0x384f18, roughness: 0.85 });
+    const leafM   = new THREE.MeshStandardMaterial({ color: 0x3a6a1e, roughness: 0.9, side: THREE.DoubleSide });
+    [[-2.9,-1.9],[-3.1,-1.2],[-2.7,-2.5],[2.9,-1.9],[3.1,-2.3]].forEach(([bx, bz]) => {
+      const h = 2.8 + Math.random() * 1.8;
+      const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.068, h, 7), bambooM);
+      stalk.position.set(bx, h / 2, bz);
+      stalk.rotation.z = (Math.random() - 0.5) * 0.10;
+      g.add(stalk);
+      for (let n = 1; n < Math.floor(h / 0.58); n++) {
+        const nd = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.068, 0.04, 7), nodeM);
+        nd.position.set(bx, n * 0.58, bz);
+        g.add(nd);
+      }
+      for (let l = 0; l < 4; l++) {
+        const lf = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.09), leafM);
+        lf.position.set(
+          bx + (Math.random()-0.5)*0.35,
+          h * 0.65 + l * 0.28,
+          bz + (Math.random()-0.5)*0.35,
+        );
+        lf.rotation.set(Math.random()*0.5, Math.random()*Math.PI*2, Math.random()*0.45);
+        g.add(lf);
+      }
+    });
+
+    // ── 修行台（座石） ──
+    const seatM = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.58, 0.62, 0.20, 10),
+      new THREE.MeshStandardMaterial({ color: 0x625244, roughness: 0.92 }),
+    );
+    seatM.position.set(0, 0.10, -0.9);
+    seatM.castShadow = true;
+    g.add(seatM);
+
+    // ── 水辺の光 ──
+    const wLight = new THREE.PointLight(0x40a8d8, 1.4, 9);
+    wLight.position.set(0, 1.8, 0.8);
+    g.add(wLight);
+
+    g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
+    this.scene.add(g);
   }
 
   // ─── ショップ（小さいお店） ────────────────────────────────

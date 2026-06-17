@@ -227,7 +227,10 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_equipped');
   localStorage.removeItem('dz_next_stage');
   localStorage.removeItem('dz_potions');
+  localStorage.removeItem('dz_training_level');
   potions = 0;
+  trainingLevel = 0;
+  stopTraining();
   updateCoinDisplay();
   refreshShopButtons();
   refreshSkillButtons();
@@ -272,9 +275,16 @@ document.querySelectorAll('.shop-buy-btn').forEach(btn => {
 // ─── ホーム画面 近接ボタン ────────────────────────────────
 const shopEnterBtn   = document.getElementById('btn-home-shop-enter');
 const battleEnterBtn = document.getElementById('btn-home-battle-enter');
+const trainEnterBtn  = document.getElementById('btn-home-train-enter');
+const trainStopBtn   = document.getElementById('btn-home-train-stop');
+const trainTimerEl   = document.getElementById('home-train-timer');
+const levelupEl      = document.getElementById('home-levelup-popup');
+const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
 
 shopEnterBtn.addEventListener('click', () => { showShopMenu(); });
 battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
+trainEnterBtn.addEventListener('click', () => { startTraining(); });
+trainStopBtn.addEventListener('click',  () => { stopTraining(); });
 
 function startBattleFlow() {
   homeScene.stop();
@@ -282,6 +292,98 @@ function startBattleFlow() {
   opChoiceEl.classList.remove('hidden');
   state = STATE.OPENING_CHOICE;
   updateCoinDisplay();
+}
+
+// ─── 修行システム ─────────────────────────────────────────
+const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
+const MAX_TRAINING_LEVEL = 10;
+
+let trainingActive = false;
+let trainingLevel  = parseInt(localStorage.getItem('dz_training_level') || '0', 10);
+let trainingTimer  = 0;
+
+function getTrainingBonus() {
+  return parseInt(localStorage.getItem('dz_training_level') || '0', 10) * 0.2;
+}
+
+function startTraining() {
+  if (trainingLevel >= MAX_TRAINING_LEVEL) return;
+  trainingActive = true;
+  trainingTimer  = TRAINING_TIMES[trainingLevel];
+  homeScene.setSitting(true);
+  trainEnterBtn.classList.add('hidden');
+  trainStopBtn.classList.remove('hidden');
+  trainTimerEl.classList.remove('hidden');
+  _updateTrainTimer();
+}
+
+function stopTraining() {
+  trainingActive = false;
+  homeScene.setSitting(false);
+  trainStopBtn.classList.add('hidden');
+  trainTimerEl.classList.add('hidden');
+}
+
+function _updateTrainTimer() {
+  const lv  = trainingLevel + 1;
+  const sec = Math.ceil(trainingTimer);
+  trainTimerEl.textContent = `Lv${lv} まで あと ${sec}秒`;
+}
+
+function _onTrainingLevelUp() {
+  trainingLevel++;
+  localStorage.setItem('dz_training_level', String(trainingLevel));
+
+  if (trainingLevel >= MAX_TRAINING_LEVEL) {
+    // レベル10 MAX！激しいエフェクト
+    stopTraining();
+    _showMaxLevelEffect();
+  } else {
+    // 通常レベルアップ → 次のレベルへ続行
+    trainingTimer = TRAINING_TIMES[trainingLevel];
+    _showLevelUp(trainingLevel);
+  }
+}
+
+function _showLevelUp(lv) {
+  levelupEl.textContent = `${lv} レベルアップ！`;
+  levelupEl.style.animation = 'none';
+  void levelupEl.offsetWidth; // reflow
+  levelupEl.style.animation = 'levelupAnim 2.4s forwards';
+  levelupEl.classList.remove('hidden');
+  setTimeout(() => levelupEl.classList.add('hidden'), 2500);
+}
+
+function _showMaxLevelEffect() {
+  // 通常のレベルアップ表示
+  levelupEl.textContent = '10 レベルアップ！';
+  levelupEl.style.animation = 'none';
+  void levelupEl.offsetWidth;
+  levelupEl.style.animation = 'levelupAnim 2.4s forwards';
+  levelupEl.classList.remove('hidden');
+  setTimeout(() => levelupEl.classList.add('hidden'), 2500);
+
+  // 激しいMAXエフェクト（0.6秒後に表示）
+  setTimeout(() => {
+    // 星パーティクル生成
+    const starsEl = document.getElementById('ml-stars');
+    starsEl.innerHTML = '';
+    const STAR_CHARS = ['✦', '★', '✧', '✨', '⭐'];
+    for (let i = 0; i < 24; i++) {
+      const s = document.createElement('span');
+      s.className = 'ml-star';
+      s.textContent = STAR_CHARS[i % STAR_CHARS.length];
+      const angle = (i / 24) * 360;
+      const radius = 120 + Math.random() * 140;
+      s.style.setProperty('--a', `${angle}deg`);
+      s.style.setProperty('--r', `-${radius}px`);
+      s.style.setProperty('--dur', `${1.5 + Math.random() * 1.2}s`);
+      s.style.animationDelay = `${Math.random() * 0.4}s`;
+      starsEl.appendChild(s);
+    }
+    maxlevelEl.classList.remove('hidden');
+    setTimeout(() => maxlevelEl.classList.add('hidden'), 4000);
+  }, 600);
 }
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
@@ -466,6 +568,7 @@ function showBattleUI() {
 function retryCurrentStage() {
   showBattleUI();
   game.player.setWeapon(getBestWeapon());
+  game.player.setTrainingBonus(getTrainingBonus());
   if      (currentStage === 2) game.startStage2();
   else if (currentStage === 3) game.startStage3();
   else if (currentStage === 4) game.startStage4();
@@ -482,6 +585,7 @@ function startGame() {
   showBattleUI();
   currentStage = 1;
   game.player.setWeapon(getBestWeapon());
+  game.player.setTrainingBonus(getTrainingBonus());
   game.startStage();
   hud.reset();
   hud.setZombies(game.zombies.aliveCount);
@@ -498,6 +602,7 @@ function startStage2Opening() {
     showBattleUI();
     currentStage = 2;
     game.player.setWeapon(getBestWeapon());
+    game.player.setTrainingBonus(getTrainingBonus());
     game.startStage2();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
@@ -515,6 +620,7 @@ function startStage3Opening() {
     showBattleUI();
     currentStage = 3;
     game.player.setWeapon(getBestWeapon());
+    game.player.setTrainingBonus(getTrainingBonus());
     game.startStage3();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
@@ -532,6 +638,7 @@ function startStage4Opening() {
     showBattleUI();
     currentStage = 4;
     game.player.setWeapon(getBestWeapon());
+    game.player.setTrainingBonus(getTrainingBonus());
     game.startStage4();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
@@ -596,6 +703,17 @@ function loop(now) {
     homeScene.setJoy(move);
     shopEnterBtn.classList.toggle('hidden', !homeScene.nearShop);
     battleEnterBtn.classList.toggle('hidden', !homeScene.nearBattle);
+
+    // 修行ボタン: 近くにいて修行中でなければ表示（MAX到達済みなら非表示）
+    const canTrain = homeScene.nearTraining && !trainingActive && trainingLevel < MAX_TRAINING_LEVEL;
+    trainEnterBtn.classList.toggle('hidden', !canTrain);
+
+    // 修行タイマー更新
+    if (trainingActive) {
+      trainingTimer -= dt;
+      _updateTrainTimer();
+      if (trainingTimer <= 0) _onTrainingLevelUp();
+    }
   } else if (state === STATE.PLAYING) {
     game.update(dt, move);
     hud.setHP(game.player.hp);

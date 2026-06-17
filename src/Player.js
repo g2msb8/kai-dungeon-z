@@ -26,6 +26,7 @@ export class Player {
     this.facing  = 0;
     this.alive   = true;
     this._moving = false;
+    this._trainingBonus = 0;
 
     // 特殊技状態
     this._dashTime  = 0;     // ダッシュ残り時間(秒)
@@ -41,8 +42,16 @@ export class Player {
 
   // 武器を切り替える（ショップ購入後にステージ開始前に呼ぶ）
   setWeapon(type) {
+    const bonus = this._trainingBonus ?? 0;
     this.sword.dispose();
     this.sword = new Sword(this.armR, this.armL, type);
+    this.sword._trainingBonus = bonus;
+  }
+
+  // 修行による攻撃力ボーナス（レベル × 0.2 の乗数）
+  setTrainingBonus(n) {
+    this._trainingBonus = n;
+    this.sword._trainingBonus = n;
   }
 
   update(dt, move, bounds) {
