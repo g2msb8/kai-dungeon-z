@@ -239,6 +239,30 @@
     }
     .home-coins .coin-emoji { font-size: 20px; line-height: 1; }
 
+    /* ===== Home 近接アクションボタン ===== */
+    #home-proximity-wrap {
+      position: absolute; bottom: 64px; left: 0; right: 0;
+      z-index: 5; display: flex; justify-content: center; gap: 16px;
+      pointer-events: none;
+    }
+    .home-action-btn {
+      pointer-events: auto; cursor: pointer;
+      padding: 16px 28px; font-size: 18px; font-weight: bold; letter-spacing: 2px;
+      color: #fff; border: none; border-radius: 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.40);
+      transition: transform 0.08s;
+    }
+    .home-action-btn:active { transform: scale(0.93); }
+    .home-action-btn.hidden { display: none; }
+    #btn-home-shop-enter {
+      background: linear-gradient(180deg, #ffd740, #e65100);
+      box-shadow: 0 4px 0 #bf360c, 0 6px 18px rgba(0,0,0,0.35);
+    }
+    #btn-home-battle-enter {
+      background: linear-gradient(180deg, #ef9a9a, #c62828);
+      box-shadow: 0 4px 0 #7f0000, 0 6px 18px rgba(0,0,0,0.35);
+    }
+
     /* ===== Shop Screen ===== */
     .shop-screen {
       position: fixed; inset: 0; z-index: 50;
@@ -635,6 +659,11 @@
     <div class="home-logo">
       ダンジョン<span class="z">Z</span>
       <span class="sub">DUNGEON Z</span>
+    </div>
+    <!-- 近接アクションボタン -->
+    <div id="home-proximity-wrap">
+      <button id="btn-home-shop-enter" class="home-action-btn hidden">🏪 ショップを開く</button>
+      <button id="btn-home-battle-enter" class="home-action-btn hidden">⚔️ バトルに行く</button>
     </div>
   </div>
 

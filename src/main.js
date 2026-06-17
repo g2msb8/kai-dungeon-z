@@ -269,7 +269,20 @@ document.querySelectorAll('.shop-buy-btn').forEach(btn => {
   });
 });
 
-// ─── ホーム画面（ボタン削除済み・移動のみ） ────────────────
+// ─── ホーム画面 近接ボタン ────────────────────────────────
+const shopEnterBtn   = document.getElementById('btn-home-shop-enter');
+const battleEnterBtn = document.getElementById('btn-home-battle-enter');
+
+shopEnterBtn.addEventListener('click', () => { showShopMenu(); });
+battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
+
+function startBattleFlow() {
+  homeScene.stop();
+  homeEl.classList.add('hidden');
+  opChoiceEl.classList.remove('hidden');
+  state = STATE.OPENING_CHOICE;
+  updateCoinDisplay();
+}
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
 game.zombies.onKill = ({ drops, remaining }) => {
@@ -581,6 +594,8 @@ function loop(now) {
 
   if (state === STATE.HOME) {
     homeScene.setJoy(move);
+    shopEnterBtn.classList.toggle('hidden', !homeScene.nearShop);
+    battleEnterBtn.classList.toggle('hidden', !homeScene.nearBattle);
   } else if (state === STATE.PLAYING) {
     game.update(dt, move);
     hud.setHP(game.player.hp);

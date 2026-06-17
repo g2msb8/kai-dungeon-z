@@ -26,6 +26,10 @@ export class HomeScene {
     this._playerFacing = 0;
     this._camTarget    = new THREE.Vector3();
     this._joy          = { x: 0, y: 0 };
+    this.nearShop      = false;
+    this.nearBattle    = false;
+    this._shopPos      = null;
+    this._jetPos       = null;
 
     this._build();
     this._onResize();
@@ -40,6 +44,8 @@ export class HomeScene {
     this._buildCarpet();
     this._buildCeilingFan();
     this._buildLamps();
+    this._buildShop();
+    this._buildJet();
     this._buildPlayer();
   }
 
@@ -431,11 +437,207 @@ export class HomeScene {
     this._humanoid.update(dt, { moving });
 
     // カメラ追従（バトルと同じ俯瞰視点）
-    const p = this._humanoid.root.position;
+    const p  = this._humanoid.root.position;
+
+    // 近接判定
+    this.nearShop   = this._shopPos ? p.distanceTo(this._shopPos) < 5.5 : false;
+    this.nearBattle = this._jetPos  ? p.distanceTo(this._jetPos)  < 5.5 : false;
     const desired = new THREE.Vector3(p.x, p.y + 4.5, p.z + 7.5);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     this._camTarget.set(p.x, p.y + 1.4, p.z - 1);
     this.camera.lookAt(this._camTarget);
+  }
+
+  // ─── テキストスプライト生成 ─────────────────────────────────
+  _makeTextSprite(text) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 72;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 256, 72);
+    ctx.fillStyle = '#7a1a1a';
+    ctx.beginPath();
+    ctx.roundRect(3, 3, 250, 66, 12);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(3, 3, 250, 66, 12);
+    ctx.stroke();
+    ctx.font = 'bold 40px "Hiragino Kaku Gothic ProN", sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 36);
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+    const sprite = new THREE.Sprite(mat);
+    return sprite;
+  }
+
+  // ─── ショップ（小さいお店） ────────────────────────────────
+  _buildShop() {
+    const SHOP_POS = new THREE.Vector3(0, 0, -12);
+    this._shopPos  = SHOP_POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(SHOP_POS);
+    g.rotation.y = Math.PI; // 中央に向く
+
+    const wood    = new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.8 });
+    const topWood = new THREE.MeshStandardMaterial({ color: 0x7a4a28, roughness: 0.7 });
+    const cream   = new THREE.MeshStandardMaterial({ color: 0xf5e8c8, roughness: 0.85 });
+    const redRoof = new THREE.MeshStandardMaterial({ color: 0x8b1a1a, roughness: 0.88 });
+
+    // カウンター本体
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.1, 1.2), wood);
+    counter.position.y = 0.55;
+    g.add(counter);
+
+    // カウンター天板
+    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.09, 1.28), topWood);
+    topPlate.position.y = 1.14;
+    g.add(topPlate);
+
+    // 後ろ壁
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.5, 0.12), cream);
+    back.position.set(0, 1.25, -0.6);
+    g.add(back);
+
+    // 左右の壁
+    for (const sx of [-1.54, 1.54]) {
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 1.2), cream);
+      sw.position.set(sx, 1.25, 0);
+      g.add(sw);
+    }
+
+    // 屋根
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.15, 1.7), redRoof);
+    roof.position.y = 2.57;
+    g.add(roof);
+
+    // 前柱
+    for (const sx of [-1.42, 1.42]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8), wood);
+      post.position.set(sx, 1.25, 0.52);
+      g.add(post);
+    }
+
+    // 宝石1（カウンター上）
+    const gem1 = new THREE.Mesh(new THREE.OctahedronGeometry(0.14),
+      new THREE.MeshStandardMaterial({ color: 0x40e0d0, emissive: 0x00838f, emissiveIntensity: 0.5, roughness: 0.12 }));
+    gem1.position.set(-0.85, 1.27, 0.18);
+    g.add(gem1);
+
+    // 宝石2
+    const gem2 = new THREE.Mesh(new THREE.OctahedronGeometry(0.11),
+      new THREE.MeshStandardMaterial({ color: 0xff6840, emissive: 0xe03010, emissiveIntensity: 0.4, roughness: 0.12 }));
+    gem2.position.set(0.72, 1.27, 0.18);
+    g.add(gem2);
+
+    // ミニ剣（カウンター上）
+    const bladeM = new THREE.MeshStandardMaterial({ color: 0xd0d8e0, metalness: 0.8, roughness: 0.2 });
+    const blade  = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.78, 0.03), bladeM);
+    blade.position.set(0.1, 1.6, 0.18);
+    blade.rotation.z = 0.13;
+    g.add(blade);
+    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.046, 0.03), bladeM);
+    guard.position.set(0.1, 1.28, 0.18);
+    g.add(guard);
+
+    // 「ショップ」看板スプライト
+    const sign = this._makeTextSprite('ショップ');
+    sign.position.set(0, 3.25, 0.26);
+    sign.scale.set(3.1, 0.88, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
+  // ─── ミニ戦闘機（ジェット） ───────────────────────────────
+  _buildJet() {
+    const JET_POS = new THREE.Vector3(0, 0, 12);
+    this._jetPos  = JET_POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(JET_POS);
+    // 中央に向く (−Z方向)
+    g.rotation.y = Math.PI;
+    g.scale.setScalar(1.5);
+
+    const bodyM  = new THREE.MeshStandardMaterial({ color: 0x5a6670, metalness: 0.5, roughness: 0.5 });
+    const darkM  = new THREE.MeshStandardMaterial({ color: 0x2d3540, metalness: 0.4, roughness: 0.65 });
+    const glassM = new THREE.MeshStandardMaterial({ color: 0x1a3a5c, transparent: true, opacity: 0.72, roughness: 0.08 });
+    const glowM  = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff4400, emissiveIntensity: 2.2 });
+
+    // 胴体
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 3.2, 12), bodyM);
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.position.y = 0.88;
+    g.add(fuselage);
+
+    // ノーズコーン
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.23, 1.0, 12), bodyM);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.set(0, 0.88, -2.1);
+    g.add(nose);
+
+    // コックピット
+    const cockpit = new THREE.Mesh(
+      new THREE.SphereGeometry(0.21, 10, 7, 0, Math.PI * 2, 0, Math.PI * 0.52), glassM);
+    cockpit.position.set(0, 1.16, -0.5);
+    g.add(cockpit);
+
+    // 主翼（後退翼）
+    for (const side of [-1, 1]) {
+      const wing = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.055, 1.0), bodyM);
+      wing.position.set(side * 0.95, 0.83, 0.1);
+      wing.rotation.y = side * -0.2;
+      g.add(wing);
+    }
+
+    // 垂直尾翼
+    const vFin = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.82, 0.68), bodyM);
+    vFin.position.set(0, 1.50, 1.35);
+    g.add(vFin);
+
+    // 水平尾翼
+    for (const side of [-1, 1]) {
+      const hFin = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.055, 0.5), bodyM);
+      hFin.position.set(side * 0.43, 0.9, 1.42);
+      g.add(hFin);
+    }
+
+    // エンジンノズル
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.15, 0.32, 10), darkM);
+    nozzle.rotation.x = Math.PI / 2;
+    nozzle.position.set(0, 0.88, 1.76);
+    g.add(nozzle);
+
+    // エンジングロー
+    const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 10), glowM);
+    exhaust.rotation.x = Math.PI / 2;
+    exhaust.position.set(0, 0.88, 1.94);
+    g.add(exhaust);
+
+    // エアインテーク
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.15, 0.5), darkM);
+    intake.position.set(0, 0.58, -0.72);
+    g.add(intake);
+
+    // 降着装置
+    for (const [wx, wz] of [[0.55, 0.2], [-0.55, 0.2], [0, -1.2]]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.07, 8), darkM);
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(wx, 0.42, wz);
+      g.add(wheel);
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.28, 0.035), darkM);
+      strut.position.set(wx, 0.57, wz);
+      g.add(strut);
+    }
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
   }
 }
 

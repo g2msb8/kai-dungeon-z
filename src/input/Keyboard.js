@@ -26,6 +26,7 @@ export class Keyboard {
     if (this._down.has('ArrowLeft'))  x -= 1;
     if (this._down.has('ArrowRight')) x += 1;
     if (this._down.has('ArrowUp'))    y -= 1;
+    if (this._down.has('ArrowDown'))  y += 1;
     const len = Math.hypot(x, y);
     return len > 0 ? { x: x / len, y: y / len } : { x: 0, y: 0 };
   }
