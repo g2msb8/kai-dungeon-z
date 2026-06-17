@@ -18,7 +18,7 @@
     canvas { display: block; }
 
     /* ===== HUD ===== */
-    #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+    #hud { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 10; }
     #hud .top-bar {
       position: absolute; top: env(safe-area-inset-top, 12px); left: 0; right: 0;
       display: flex; justify-content: space-between; align-items: flex-start;
@@ -60,6 +60,7 @@
       transform: translate(-50%, -50%); display: none;
     }
     #attack-btn {
+      display: none; /* バトル開始時にJSで表示 */
       position: fixed; right: 28px; bottom: 64px; width: 96px; height: 96px;
       border-radius: 50%; z-index: 20; pointer-events: auto; touch-action: none;
       background: radial-gradient(circle at 35% 30%, #ff8a5a, #c0392b);
@@ -634,11 +635,6 @@
     <div class="home-logo">
       ダンジョン<span class="z">Z</span>
       <span class="sub">DUNGEON Z</span>
-    </div>
-    <!-- ボタン -->
-    <div class="home-btns">
-      <button class="home-btn-start" id="btn-home-start">ゲームスタート</button>
-      <button class="home-btn-shop"  id="btn-home-shop">ショップ</button>
     </div>
   </div>
 

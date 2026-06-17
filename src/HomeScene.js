@@ -19,11 +19,14 @@ export class HomeScene {
     this.camera.position.set(0, 2.8, 5.8);
     this.camera.lookAt(0, 1.2, 0);
 
-    this._rafId      = null;
-    this._fanAngle   = 0;
-    this._walkTime   = 0;
-    this._fanBlades  = null;
-    this._humanoid   = null;
+    this._rafId        = null;
+    this._fanAngle     = 0;
+    this._fanBlades    = null;
+    this._humanoid     = null;
+    this._playerFacing = 0;
+    this._camTarget    = new THREE.Vector3();
+    this._joy          = { x: 0, y: 0 };
+    this.joystick      = null;  // 外部からセット
 
     this._build();
     this._onResize();
@@ -389,17 +392,57 @@ export class HomeScene {
     if (this._rafId) { cancelAnimationFrame(this._rafId); this._rafId = null; }
   }
 
+  // main.js のメインループから毎フレーム呼ばれる（ジョイスティック値を渡す）
+  setJoy(value) {
+    this._joy = value ?? { x: 0, y: 0 };
+  }
+
   // ─── 毎フレーム更新 ─────────────────────────────────────────
   _update(dt) {
+    // ファン回転
     this._fanAngle += dt * 3.2;
     if (this._fanBlades) this._fanBlades.rotation.y = this._fanAngle;
 
-    this._walkTime += dt;
-    if (this._humanoid) {
-      // 体のゆらぎ（アイドルアニメ）
-      this._humanoid.root.rotation.y =
-        Math.PI * 0.08 + Math.sin(this._walkTime * 0.7) * 0.05;
-      this._humanoid.update(dt, { moving: false });
+    if (!this._humanoid) return;
+
+    // ジョイスティック入力（homeScene.joystick があればそこから、なければ _joy）
+    const joy   = this.joystick ? this.joystick.value : this._joy;
+    const moveX = joy.x ?? 0;
+    const moveZ = joy.y ?? 0;
+    const len   = Math.hypot(moveX, moveZ);
+    const moving = len > 0.05;
+
+    if (moving) {
+      const speed = 4.8;
+      const nx = moveX / len, nz = moveZ / len;
+      const pos = this._humanoid.root.position;
+      pos.x += nx * speed * dt;
+      pos.z += nz * speed * dt;
+
+      // 部屋の壁（半径17m）で制限
+      const d = Math.hypot(pos.x, pos.z);
+      if (d > 17) { pos.x *= 17 / d; pos.z *= 17 / d; }
+
+      // 向き補間
+      const target = Math.atan2(-nx, -nz);
+      this._playerFacing = _lerpAngle(this._playerFacing, target, Math.min(1, 12 * dt));
+      this._humanoid.root.rotation.y = this._playerFacing;
     }
+
+    this._humanoid.update(dt, { moving });
+
+    // カメラ追従（バトルと同じ俯瞰視点）
+    const p = this._humanoid.root.position;
+    const desired = new THREE.Vector3(p.x, p.y + 4.5, p.z + 7.5);
+    this.camera.position.lerp(desired, Math.min(1, dt * 6));
+    this._camTarget.set(p.x, p.y + 1.4, p.z - 1);
+    this.camera.lookAt(this._camTarget);
   }
+}
+
+function _lerpAngle(a, b, t) {
+  let d = b - a;
+  while (d >  Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
 }

@@ -256,25 +256,7 @@ document.querySelectorAll('.shop-buy-btn').forEach(btn => {
   });
 });
 
-// ─── ホーム画面 ────────────────────────────────────────────
-document.getElementById('btn-home-start').addEventListener('click', () => {
-  const nextStage = parseInt(localStorage.getItem('dz_next_stage') || '1', 10);
-  homeEl.classList.add('hidden');
-  homeScene.stop();
-  if (nextStage === 2) {
-    startStage2Opening();
-  } else if (nextStage === 3) {
-    startStage3Opening();
-  } else if (nextStage === 4) {
-    startStage4Opening();
-  } else {
-    // Stage 1 → 通常フロー（オープニング選択）
-    state = STATE.OPENING_CHOICE;
-    opChoiceEl.classList.remove('hidden');
-  }
-});
-
-document.getElementById('btn-home-shop').addEventListener('click', showShopMenu);
+// ─── ホーム画面（ボタン削除済み・移動のみ） ────────────────
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
 game.zombies.onKill = ({ drops, remaining }) => {
@@ -543,9 +525,6 @@ function showHome() {
   updateCoinDisplay();
   updatePotionBtn();
   homeScene.start();
-  // ホーム画面では攻撃ボタン・HUD を非表示
-  document.getElementById('attack-btn').style.display = 'none';
-  document.getElementById('hud').style.display = 'none';
 }
 
 // ─── タイトル画面へ ────────────────────────────────────────
@@ -585,7 +564,9 @@ function loop(now) {
   last = now;
   dt = Math.min(dt, 0.05);
 
-  if (state === STATE.PLAYING) {
+  if (state === STATE.HOME) {
+    homeScene.setJoy(joystick.value);
+  } else if (state === STATE.PLAYING) {
     game.update(dt, joystick.value);
     hud.setHP(game.player.hp);
     hud.setZombies(game.zombies.aliveCount);
@@ -596,11 +577,11 @@ function loop(now) {
       updatePotionBtn();
       screens.showOver(game.zombies.drops);
     }
+    game.render();
   } else {
     game.update(0, { x: 0, y: 0 });
+    game.render();
   }
-
-  game.render();
   rafId = requestAnimationFrame(loop);
 }
 
@@ -620,7 +601,6 @@ window.__dz = {
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();
+homeScene.joystick = joystick;
 homeScene.start();
-document.getElementById('attack-btn').style.display = 'none';
-document.getElementById('hud').style.display = 'none';
 rafId = requestAnimationFrame(loop);
