@@ -2,6 +2,7 @@
 // OPENING_CHOICE → (見る) OPENING → TITLE → PLAYING → CLEAR / OVER
 import * as THREE from 'three';
 import { Game }           from './Game.js';
+import { HomeScene }      from './HomeScene.js';
 import { Joystick }       from './input/Joystick.js';
 import { AttackButton }   from './input/AttackButton.js';
 import { HUD }            from './ui/HUD.js';
@@ -21,8 +22,9 @@ const STATE = {
   OVER:           'over',
 };
 
-const game = new Game(document.getElementById('app'));
-const hud  = new HUD();
+const game      = new Game(document.getElementById('app'));
+const homeScene = new HomeScene(document.getElementById('home-canvas'));
+const hud       = new HUD();
 
 const joystick = new Joystick(
   document.getElementById('joystick-zone'),
@@ -258,6 +260,7 @@ document.querySelectorAll('.shop-buy-btn').forEach(btn => {
 document.getElementById('btn-home-start').addEventListener('click', () => {
   const nextStage = parseInt(localStorage.getItem('dz_next_stage') || '1', 10);
   homeEl.classList.add('hidden');
+  homeScene.stop();
   if (nextStage === 2) {
     startStage2Opening();
   } else if (nextStage === 3) {
@@ -445,8 +448,15 @@ function getBestWeapon() {
   return 'copper';
 }
 
+// ─── バトルUI（攻撃ボタン・HUD）を表示 ───────────────────────
+function showBattleUI() {
+  document.getElementById('attack-btn').style.display = '';
+  document.getElementById('hud').style.display = '';
+}
+
 // ─── 現在のステージをリトライ（ステージを維持して再挑戦） ──
 function retryCurrentStage() {
+  showBattleUI();
   game.player.setWeapon(getBestWeapon());
   if      (currentStage === 2) game.startStage2();
   else if (currentStage === 3) game.startStage3();
@@ -461,6 +471,7 @@ function retryCurrentStage() {
 
 // ─── ステージ1 開始 ────────────────────────────────────────
 function startGame() {
+  showBattleUI();
   currentStage = 1;
   game.player.setWeapon(getBestWeapon());
   game.startStage();
@@ -476,6 +487,7 @@ function startStage2Opening() {
   screens.hideAll();
   homeEl.classList.add('hidden');
   const op = new Stage2Opening(() => {
+    showBattleUI();
     currentStage = 2;
     game.player.setWeapon(getBestWeapon());
     game.startStage2();
@@ -492,6 +504,7 @@ function startStage3Opening() {
   screens.hideAll();
   homeEl.classList.add('hidden');
   const op = new Stage3Opening(() => {
+    showBattleUI();
     currentStage = 3;
     game.player.setWeapon(getBestWeapon());
     game.startStage3();
@@ -508,6 +521,7 @@ function startStage4Opening() {
   screens.hideAll();
   homeEl.classList.add('hidden');
   const op = new Stage4Opening(() => {
+    showBattleUI();
     currentStage = 4;
     game.player.setWeapon(getBestWeapon());
     game.startStage4();
@@ -528,6 +542,10 @@ function showHome() {
   screens.hideAll();
   updateCoinDisplay();
   updatePotionBtn();
+  homeScene.start();
+  // ホーム画面では攻撃ボタン・HUD を非表示
+  document.getElementById('attack-btn').style.display = 'none';
+  document.getElementById('hud').style.display = 'none';
 }
 
 // ─── タイトル画面へ ────────────────────────────────────────
@@ -602,4 +620,7 @@ window.__dz = {
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();
+homeScene.start();
+document.getElementById('attack-btn').style.display = 'none';
+document.getElementById('hud').style.display = 'none';
 rafId = requestAnimationFrame(loop);

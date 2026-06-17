@@ -174,71 +174,29 @@
     #screen-home {
       position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
       align-items: center; justify-content: flex-end;
-      background: linear-gradient(180deg, #29b6f6 0%, #4fc3f7 25%, #81d4fa 55%, #b3e5fc 80%, #e1f5fe 100%);
       overflow: hidden;
     }
     #screen-home.hidden { display: none; }
 
-    /* 太陽 */
-    .home-sun {
-      position: absolute; top: 52px; right: 52px;
-      width: 78px; height: 78px; border-radius: 50%;
-      background: radial-gradient(circle at 40% 38%, #fffde7, #ffee58 55%, #ffd740);
-      box-shadow: 0 0 50px 18px rgba(255,236,64,0.45), 0 0 100px 40px rgba(255,200,0,0.18);
+    /* 3Dホームシーン用キャンバス */
+    #home-canvas {
+      position: absolute; inset: 0; z-index: 0; display: block;
+      width: 100%; height: 100%;
     }
-
-    /* 雲 */
-    .home-cloud {
-      position: absolute; background: #fff;
-      border-radius: 60px; opacity: 0.88;
-    }
-    .home-cloud::before, .home-cloud::after {
-      content: ''; position: absolute; background: #fff; border-radius: 50%;
-    }
-    .hc1 { width:190px; height:52px; top:14%; }
-    .hc1::before { width:80px; height:72px; top:-36px; left:30px; }
-    .hc1::after  { width:60px; height:56px; top:-28px; left:90px; }
-    .hc2 { width:130px; height:38px; top:30%; }
-    .hc2::before { width:58px; height:54px; top:-26px; left:20px; }
-    .hc2::after  { width:44px; height:44px; top:-20px; left:62px; }
-    .hc3 { width:160px; height:44px; top:22%; }
-    .hc3::before { width:66px; height:62px; top:-30px; left:24px; }
-    .hc3::after  { width:50px; height:50px; top:-24px; left:78px; }
-
-    @keyframes cloudDrift {
-      from { transform: translateX(-320px); }
-      to   { transform: translateX(110vw); }
-    }
-
-    /* 地面 */
-    .home-ground {
-      position: absolute; bottom: 0; left: 0; right: 0; height: 130px;
-      background: linear-gradient(180deg, #66bb6a 0%, #388e3c 40%, #2e7d32 100%);
-    }
-    .home-ground::before {
-      content: ''; position: absolute; top: -20px; left: -5%; right: -5%; height: 44px;
-      background: radial-gradient(ellipse at 50% 100%, #76c442 30%, transparent 70%);
-    }
-    /* 木シルエット */
-    .home-tree {
-      position: absolute; bottom: 110px; display: flex; flex-direction: column; align-items: center;
-    }
-    .home-tree .trunk { width: 16px; border-radius: 4px; background: #5c3d1e; }
-    .home-tree .leaf  { border-radius: 50% 50% 40% 40%; background: #2e7d32; }
 
     /* タイトルロゴ */
     .home-logo {
-      position: absolute; top: 80px; left: 0; right: 0;
+      position: absolute; top: 52px; left: 0; right: 0; z-index: 5;
       text-align: center;
       font-size: 58px; font-weight: bold; letter-spacing: 6px;
-      color: #fff; text-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 6px 18px rgba(0,80,160,0.25);
+      color: #222; text-shadow: 0 2px 0 rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.08);
     }
     .home-logo .z {
-      color: #4caf50; text-shadow: 0 0 18px #81c784, 0 3px 0 rgba(0,0,0,0.18);
+      color: #e64a19; text-shadow: 0 0 14px rgba(230,74,25,0.4), 0 2px 0 rgba(0,0,0,0.10);
     }
     .home-logo .sub {
       display: block; font-size: 13px; letter-spacing: 5px;
-      color: rgba(255,255,255,0.75); margin-top: 2px; font-weight: normal;
+      color: rgba(0,0,0,0.45); margin-top: 2px; font-weight: normal;
     }
 
     /* ボタン群 */
@@ -271,11 +229,12 @@
     .home-coins {
       position: absolute; top: 18px; left: 18px; z-index: 10;
       display: flex; align-items: center; gap: 6px;
-      background: rgba(0,0,0,0.35); border-radius: 20px;
+      background: rgba(255,255,255,0.80); border-radius: 20px;
       padding: 7px 14px 7px 10px;
-      font-size: 20px; font-weight: bold; color: #fff;
-      text-shadow: 0 1px 2px #000;
-      border: 1px solid rgba(255,220,60,0.45);
+      font-size: 20px; font-weight: bold; color: #333;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      border: 1px solid rgba(200,180,80,0.35);
+      backdrop-filter: blur(4px);
     }
     .home-coins .coin-emoji { font-size: 20px; line-height: 1; }
 
@@ -664,33 +623,13 @@
 
   <!-- Home Screen -->
   <div id="screen-home">
+    <!-- 3Dシーン -->
+    <canvas id="home-canvas"></canvas>
     <!-- コイン表示 -->
     <div class="home-coins">
       <span class="coin-emoji">🪙</span>
       <span id="home-coin-display">0</span>
     </div>
-    <!-- 太陽 -->
-    <div class="home-sun"></div>
-    <!-- 雲（アニメーション付き） -->
-    <div class="home-cloud hc1" style="animation: cloudDrift 32s linear 0s infinite;"></div>
-    <div class="home-cloud hc2" style="animation: cloudDrift 48s linear 12s infinite;"></div>
-    <div class="home-cloud hc3" style="animation: cloudDrift 58s linear 4s infinite;"></div>
-    <!-- 左の木 -->
-    <div class="home-tree" style="left:6%">
-      <div class="leaf" style="width:72px;height:90px;margin-bottom:-12px;background:#1b5e20;"></div>
-      <div class="leaf" style="width:90px;height:110px;margin-bottom:-14px;background:#2e7d32;"></div>
-      <div class="leaf" style="width:110px;height:130px;background:#388e3c;"></div>
-      <div class="trunk" style="height:48px;"></div>
-    </div>
-    <!-- 右の木 -->
-    <div class="home-tree" style="right:8%">
-      <div class="leaf" style="width:64px;height:80px;margin-bottom:-10px;background:#1b5e20;"></div>
-      <div class="leaf" style="width:82px;height:100px;margin-bottom:-12px;background:#2e7d32;"></div>
-      <div class="leaf" style="width:100px;height:120px;background:#388e3c;"></div>
-      <div class="trunk" style="height:42px;"></div>
-    </div>
-    <!-- 地面 -->
-    <div class="home-ground"></div>
     <!-- タイトルロゴ -->
     <div class="home-logo">
       ダンジョン<span class="z">Z</span>
