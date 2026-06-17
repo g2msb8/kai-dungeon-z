@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { Game }           from './Game.js';
 import { HomeScene }      from './HomeScene.js';
 import { Joystick }       from './input/Joystick.js';
+import { Keyboard }       from './input/Keyboard.js';
 import { AttackButton }   from './input/AttackButton.js';
 import { HUD }            from './ui/HUD.js';
 import { Screens }        from './ui/Screens.js';
@@ -31,6 +32,18 @@ const joystick = new Joystick(
   document.getElementById('joystick-base'),
   document.getElementById('joystick-knob'),
 );
+const keyboard = new Keyboard();
+
+// ジョイスティックとキーボードの入力を合成（どちらも使えるように）
+function getMoveInput() {
+  const joy = joystick.value;
+  const key = keyboard.moveValue;
+  let x = (joy.x || 0) + (key.x || 0);
+  let y = (joy.y || 0) + (key.y || 0);
+  const len = Math.hypot(x, y);
+  if (len > 1) { x /= len; y /= len; }
+  return { x, y };
+}
 
 new AttackButton(document.getElementById('attack-btn'), () => {
   if (state === STATE.PLAYING) game.player.tryAttack();
@@ -564,13 +577,37 @@ function loop(now) {
   last = now;
   dt = Math.min(dt, 0.05);
 
+  const move = getMoveInput();
+
   if (state === STATE.HOME) {
-    homeScene.setJoy(joystick.value);
+    homeScene.setJoy(move);
   } else if (state === STATE.PLAYING) {
-    game.update(dt, joystick.value);
+    game.update(dt, move);
     hud.setHP(game.player.hp);
     hud.setZombies(game.zombies.aliveCount);
     hud.setBossHP(game.zombies.bossHPFraction);
+
+    // キーボードアクション（PCのみ）
+    if (keyboard.consumeJustPressed('KeyA')) {
+      game.player.tryAttack();
+    }
+    if (keyboard.consumeJustPressed('KeyK')) {
+      if (potions > 0) {
+        potions--;
+        localStorage.setItem('dz_potions', String(potions));
+        game.player.hp = Math.min(100, (game.player.hp || 0) + 50);
+        hud.setHP(game.player.hp);
+        updatePotionBtn();
+      }
+    }
+    if (keyboard.consumeJustPressed('KeyT')) {
+      if (specialMenu.classList.contains('hidden')) {
+        buildSpecialMenu();
+        specialMenu.classList.remove('hidden');
+      } else {
+        specialMenu.classList.add('hidden');
+      }
+    }
 
     if (!game.player.alive) {
       state = STATE.OVER;
@@ -601,6 +638,5 @@ window.__dz = {
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();
-homeScene.joystick = joystick;
 homeScene.start();
 rafId = requestAnimationFrame(loop);

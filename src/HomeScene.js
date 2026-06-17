@@ -26,7 +26,6 @@ export class HomeScene {
     this._playerFacing = 0;
     this._camTarget    = new THREE.Vector3();
     this._joy          = { x: 0, y: 0 };
-    this.joystick      = null;  // 外部からセット
 
     this._build();
     this._onResize();
@@ -405,8 +404,8 @@ export class HomeScene {
 
     if (!this._humanoid) return;
 
-    // ジョイスティック入力（homeScene.joystick があればそこから、なければ _joy）
-    const joy   = this.joystick ? this.joystick.value : this._joy;
+    // setJoy() で毎フレーム更新される合成入力を使う
+    const joy   = this._joy;
     const moveX = joy.x ?? 0;
     const moveZ = joy.y ?? 0;
     const len   = Math.hypot(moveX, moveZ);
