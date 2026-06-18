@@ -12,6 +12,9 @@ import { Opening }        from './ui/Opening.js';
 import { Stage2Opening }  from './ui/Stage2Opening.js';
 import { Stage3Opening }  from './ui/Stage3Opening.js';
 import { Stage4Opening }  from './ui/Stage4Opening.js';
+import { Stage5Opening }  from './ui/Stage5Opening.js';
+import { Stage7Opening }  from './ui/Stage7Opening.js';
+import { Stage8Opening }  from './ui/Stage8Opening.js';
 
 const STATE = {
   HOME:           'home',
@@ -53,9 +56,12 @@ const screens = new Screens({
   onStart:     () => startGame(),
   onRetry:     () => retryCurrentStage(),
   onNextStage: () => {
-    if (currentStage === 1) startStage2Opening();
+    if      (currentStage === 1) startStage2Opening();
     else if (currentStage === 2) startStage3Opening();
     else if (currentStage === 3) startStage4Opening();
+    else if (currentStage === 4) startStage5Opening();
+    else if (currentStage === 5) startStage7Opening();
+    else if (currentStage === 7) startStage8Opening();
   },
 });
 
@@ -514,11 +520,13 @@ game.zombies.onKill = ({ drops, remaining }) => {
 game.zombies.onCleared = () => {
   if (state !== STATE.PLAYING) return;
   state = STATE.CLEAR;
-  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200 };
+  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 250, 7: 350, 8: 500 };
   addCoins(coinMap[currentStage] ?? 50);
-  // 次回スタート位置を保存（Stage4クリアで全クリ → リセット）
-  if (currentStage < 4) {
-    localStorage.setItem('dz_next_stage', String(currentStage + 1));
+  // ステージ進行: 1→2→3→4→5→7→8→全クリ
+  const nextMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 7, 7: 8 };
+  const next = nextMap[currentStage];
+  if (next) {
+    localStorage.setItem('dz_next_stage', String(next));
   } else {
     localStorage.removeItem('dz_next_stage');
   }
@@ -699,6 +707,9 @@ function retryCurrentStage() {
   if      (currentStage === 2) game.startStage2();
   else if (currentStage === 3) game.startStage3();
   else if (currentStage === 4) game.startStage4();
+  else if (currentStage === 5) game.startStage5();
+  else if (currentStage === 7) game.startStage7();
+  else if (currentStage === 8) game.startStage8();
   else                         game.startStage();
   hud.reset();
   hud.setZombies(game.zombies.aliveCount);
@@ -766,6 +777,57 @@ function startStage4Opening() {
     game.player.setWeapon(getBestWeapon());
     game.player.setTrainingBonus(getTrainingBonus());
     game.startStage4();
+    hud.reset();
+    hud.setZombies(game.zombies.aliveCount);
+    state = STATE.PLAYING;
+    updatePotionBtn();
+  });
+  op.start();
+}
+
+// ─── ステージ5 オープニング → ゲーム開始 ──────────────────
+function startStage5Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  const op = new Stage5Opening(() => {
+    showBattleUI();
+    currentStage = 5;
+    applyWeaponBonuses();
+    game.startStage5();
+    hud.reset();
+    hud.setZombies(game.zombies.aliveCount);
+    state = STATE.PLAYING;
+    updatePotionBtn();
+  });
+  op.start();
+}
+
+// ─── ステージ7 オープニング → ゲーム開始 ──────────────────
+function startStage7Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  const op = new Stage7Opening(() => {
+    showBattleUI();
+    currentStage = 7;
+    applyWeaponBonuses();
+    game.startStage7();
+    hud.reset();
+    hud.setZombies(game.zombies.aliveCount);
+    state = STATE.PLAYING;
+    updatePotionBtn();
+  });
+  op.start();
+}
+
+// ─── ステージ8 オープニング → ゲーム開始 ──────────────────
+function startStage8Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  const op = new Stage8Opening(() => {
+    showBattleUI();
+    currentStage = 8;
+    applyWeaponBonuses();
+    game.startStage8();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
     state = STATE.PLAYING;
@@ -896,6 +958,9 @@ window.__dz = {
   startStage2Opening,
   startStage3Opening,
   startStage4Opening,
+  startStage5Opening,
+  startStage7Opening,
+  startStage8Opening,
   pauseLoop()  { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } },
   resumeLoop() { if (!rafId) { last = performance.now(); rafId = requestAnimationFrame(loop); } },
 };

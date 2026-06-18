@@ -4,6 +4,9 @@ import { buildForest } from './Forest.js';
 import { buildStoneForest } from './StoneForest.js';
 import { buildLavaBiome } from './LavaBiome.js';
 import { buildDesertBiome } from './DesertBiome.js';
+import { buildIceBiome } from './IceBiome.js';
+import { buildDemonBiome } from './DemonBiome.js';
+import { buildHeavenBiome } from './HeavenBiome.js';
 import { Player } from './Player.js';
 import { ZombieManager } from './ZombieManager.js';
 import { COLORS, PLAYER } from './core/Constants.js';
@@ -148,6 +151,48 @@ export class Game {
 
     this.player.reset();
     this.zombies.setupStage4();
+    this._updateCamera(1, true);
+  }
+
+  startStage5() {
+    this._clearStageGroup();
+    const { group, bounds } = buildIceBiome(this.scene);
+    this._stageGroup = group;
+    this.bounds = bounds;
+    // 冷たい青白いライト
+    this._ambient.color.set(0x6080c0);
+    this.sun.color.set(0xd0e8ff);
+
+    this.player.reset();
+    this.zombies.setupStage5();
+    this._updateCamera(1, true);
+  }
+
+  startStage7() {
+    this._clearStageGroup();
+    const { group, bounds } = buildDemonBiome(this.scene);
+    this._stageGroup = group;
+    this.bounds = bounds;
+    // 暗い魔界のライト（紫がかった暗闇）
+    this._ambient.color.set(0x180020);
+    this.sun.color.set(0x8800aa);
+
+    this.player.reset();
+    this.zombies.setupStage7();
+    this._updateCamera(1, true);
+  }
+
+  startStage8() {
+    this._clearStageGroup();
+    const { group, bounds } = buildHeavenBiome(this.scene);
+    this._stageGroup = group;
+    this.bounds = bounds;
+    // 天国の明るい白いライト
+    this._ambient.color.set(0xb0c8ff);
+    this.sun.color.set(0xffffff);
+
+    this.player.reset();
+    this.zombies.setupStage8();
     this._updateCamera(1, true);
   }
 

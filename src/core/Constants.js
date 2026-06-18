@@ -40,8 +40,8 @@ export const SPECIAL = {
 
   // 分身
   CLONE_COUNT: 3,
-  CLONE_HP: 2,
-  CLONE_ATTACK_RANGE: 2.0,
+  CLONE_HP: 30,
+  CLONE_ATTACK_RANGE: 3.5,
   CLONE_ATTACK_COOLDOWN: 1.5,
   CLONE_MOVE_SPEED: 4.0,
   CLONE_DAMAGE: 20,
@@ -185,6 +185,42 @@ export const STAGE4 = {
   MINI_ZOMBIE_COUNT: 5,
   RADIUS: 38,
   DROP: { STONE: 0.55, ORE: 0.45 },
+};
+
+export const STAGE5 = {
+  NAME: '氷のバイオーム',
+  ZOMBIE_COUNT: 2,
+  MINI_ZOMBIE_COUNT: 10,
+  RADIUS: 38,
+  DROP: { STONE: 0.50, ORE: 0.50 },
+};
+
+export const STAGE7 = {
+  NAME: '魔界バイオーム',
+  PURPLE_COUNT: 3,
+  RADIUS: 38,
+  DROP: { STONE: 0.45, ORE: 0.55 },
+};
+
+export const STAGE8 = {
+  NAME: '天国バイオーム',
+  ARCHER_COUNT: 1,
+  MINI_ZOMBIE_COUNT: 2,
+  RADIUS: 38,
+  DROP: { STONE: 0.40, ORE: 0.60 },
+};
+
+export const ARCHER_ZOMBIE = {
+  MAX_HP: 50,
+  MOVE_SPEED: 2.0,
+  RADIUS: 0.5,
+  ATTACK_DAMAGE: 1.5,
+  ATTACK_RANGE: 15,
+  ATTACK_COOLDOWN: 2.0,
+  HIT_STUN: 0.25,
+  ARROW_SPEED: 14,
+  ARROW_LIFE: 3.0,
+  HIT_RADIUS: 0.7,
 };
 
 export const COLORS = {

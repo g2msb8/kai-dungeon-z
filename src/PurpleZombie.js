@@ -133,6 +133,17 @@ export class PurpleZombie {
     }, 220);
   }
 
+  // 透明化時にその場で回転（ZombieManager の invisible ループ用）
+  updateSpin(dt) {
+    this._phase += dt * 2.4;
+    this.root.rotation.y += dt * 3;
+    this._animateShamble(dt, false);
+  }
+
+  // 隕石などの即死系への対応（通常は 1 ダメージ制限を維持）
+  freeze()      { /* 紫ゾンビは凍結しない */ }
+  vaporizeDie() { if (!this.dying) { this.hp = 0; this.die(); } }
+
   // 常に 1 ダメージしか受けない（量を無視する）
   takeDamage(amount) {
     if (this.dying) return false;
