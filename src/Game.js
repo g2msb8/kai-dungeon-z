@@ -66,12 +66,12 @@ export class Game {
     const doHit = this.player.update(dt, move, this.bounds);
     if (doHit) this.zombies.resolveAttack(this.player);
 
-    // 分身の更新
+    // 分身の更新（武器エフェクト・ダメージはプレイヤーと同じ resolveAttack で解決）
     const aliveClones = [];
     for (const c of this.player._clones) {
       if (c.alive) {
-        const kills = c.update(dt, this.zombies.allTargets);
-        for (let k = 0; k < kills; k++) this.zombies.recordKill();
+        const doHit = c.update(dt, this.zombies.allTargets);
+        if (doHit) this.zombies.resolveAttack(c);
         aliveClones.push(c);
       } else {
         c.dispose();

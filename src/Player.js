@@ -208,7 +208,7 @@ export class Player {
         0,
         this.root.position.z + Math.cos(angle) * dist,
       );
-      this._clones.push(new Clone(scene, pos));
+      this._clones.push(new Clone(scene, pos, this.sword.weaponType, this._trainingBonus ?? 0));
     }
     soundManager.playWhoosh();
   }
@@ -255,7 +255,7 @@ function lerpAngle(a, b, t) {
 
 // ─── 分身クラス ───────────────────────────────────────────────
 export class Clone {
-  constructor(scene, position) {
+  constructor(scene, position, weaponType = 'copper', trainingBonus = 0) {
     const h = buildHumanoid({
       skin:        COLORS.PLAYER_SKIN,
       cloth:       COLORS.PLAYER_CLOTH,
@@ -265,7 +265,7 @@ export class Clone {
       face:        'player',
       hairColor:   COLORS.PLAYER_HAIR,
     });
-    this.root   = h.root;
+    this.root = h.root;
     this.root.position.copy(position);
     // 青い発光で分身と分かるようにする
     this.root.traverse(m => {
@@ -278,52 +278,82 @@ export class Clone {
       }
     });
 
-    this.hp           = SPECIAL.CLONE_HP;
-    this.alive        = true;
-    this.attackTimer  = 0;
-    this._scene       = scene;
-    this._phase       = Math.random() * Math.PI * 2;
-    this._moving      = false;
+    // プレイヤーと同じ武器を持たせる
+    this.sword = new Sword(h.parts.armR, h.parts.armL, weaponType);
+    this.sword._trainingBonus = trainingBonus;
+    this._humanoidUpdate = h.update;
+
+    this.hp      = SPECIAL.CLONE_HP;
+    this.alive   = true;
+    this._scene  = scene;
+    this._facing = 0;
+    this._moving = false;
 
     scene.add(this.root);
   }
 
   get position() { return this.root.position; }
+  // resolveAttack() の arc 計算に合わせた facing (Player と同規約)
+  get facing()   { return this._facing; }
 
-  // 戻り値: このフレームでの撃破数
-  update(dt, zombies) {
-    if (!this.alive) return 0;
-    this.attackTimer = Math.max(0, this.attackTimer - dt);
+  // 戻り値: doHit — 攻撃判定が発生したフレームは true
+  update(dt, targets) {
+    if (!this.alive) return false;
 
-    // 最近接ゾンビを探す
+    const doHit = this.sword.update(dt);
+
+    // インフェルノ用スピン
+    const spinY = this.sword.getBodySpinY();
+    if (spinY !== 0) {
+      this._facing += spinY * dt;
+      this.root.rotation.y = this._facing;
+    }
+
+    // ダイヤモンド用前進
+    const fwdVel = this.sword.getForwardVelocity();
+    if (Math.abs(fwdVel) > 0.001) {
+      this.root.position.x += -Math.sin(this._facing) * fwdVel * dt;
+      this.root.position.z += -Math.cos(this._facing) * fwdVel * dt;
+    }
+
+    // copper/iron: ジャンプ・傾き
+    this.root.position.y = this.sword.getJumpY();
+    this.root.rotation.x = this.sword.getBodyTiltX();
+
+    // 最近接ターゲットを探す
     let nearest = null, nearestDist = Infinity;
-    for (const z of zombies) {
+    for (const z of targets) {
       if (!z.alive || z.dying) continue;
       const d = Math.hypot(z.position.x - this.root.position.x, z.position.z - this.root.position.z);
       if (d < nearestDist) { nearestDist = d; nearest = z; }
     }
 
     this._moving = false;
-    if (nearest) {
+    if (nearest && spinY === 0) {
       const dx = nearest.position.x - this.root.position.x;
       const dz = nearest.position.z - this.root.position.z;
       const dist = Math.hypot(dx, dz);
-      this.root.rotation.y = Math.atan2(dx, dz);
+      // Player と同じ facing 規約 (atan2(-nx, -nz)) にして arc 判定を合わせる
+      this._facing = Math.atan2(-dx / dist, -dz / dist);
+      this.root.rotation.y = this._facing;
 
       if (dist > SPECIAL.CLONE_ATTACK_RANGE) {
         this.root.position.x += (dx / dist) * SPECIAL.CLONE_MOVE_SPEED * dt;
         this.root.position.z += (dz / dist) * SPECIAL.CLONE_MOVE_SPEED * dt;
         this._moving = true;
-      } else if (this.attackTimer <= 0) {
-        this.attackTimer = SPECIAL.CLONE_ATTACK_COOLDOWN;
-        const killed = nearest.takeDamage(SPECIAL.CLONE_DAMAGE);
-        if (killed) { soundManager.playZombieDeath(); return 1; }
+      } else if (this.sword.ready) {
+        this.sword.startSwing();
       }
     }
 
-    // 簡易歩行アニメ
-    this._phase += dt * 2.4;
-    return 0;
+    this._humanoidUpdate(dt, {
+      moving: this._moving && !this.sword.swinging,
+      lockRightArm: true,
+      lockLeftArm: this.sword.swinging && this.sword.weaponType === 'diamond',
+      speedScale: 1,
+    });
+
+    return doHit;
   }
 
   takeDamage(amount) {
@@ -336,6 +366,10 @@ export class Clone {
   }
 
   dispose() {
-    if (this._scene) { this._scene.remove(this.root); this._scene = null; }
+    if (this._scene) {
+      this.sword.dispose();
+      this._scene.remove(this.root);
+      this._scene = null;
+    }
   }
 }
