@@ -385,6 +385,46 @@
     #btn-home-train-stop:active { transform: scale(0.93); }
     #btn-home-train-stop.hidden { display: none; }
 
+    /* ─── 移動ガイド（ホーム左下・初回ユーザー向け）─── */
+    #home-move-hint {
+      position: absolute; z-index: 6; pointer-events: none;
+      left: calc(22px + env(safe-area-inset-left));
+      bottom: calc(150px + env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      transition: opacity 0.5s ease;
+    }
+    #home-move-hint.used { opacity: 0; }
+    .hint-ring {
+      width: 112px; height: 112px; border-radius: 50%;
+      border: 3px dashed rgba(255,255,255,0.9);
+      background: rgba(20,24,40,0.32);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.35), inset 0 0 18px rgba(0,0,0,0.25);
+      animation: hintPulse 1.7s ease-in-out infinite;
+    }
+    .hint-knob {
+      width: 50px; height: 50px; border-radius: 50%;
+      background: rgba(255,255,255,0.92);
+      border: 2px solid rgba(120,120,140,0.7);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      animation: hintKnob 1.7s ease-in-out infinite;
+    }
+    .hint-label {
+      font-size: 13px; font-weight: bold; color: #fff; letter-spacing: 1px;
+      background: rgba(0,0,0,0.45); padding: 5px 14px; border-radius: 14px;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+      white-space: nowrap;
+    }
+    @keyframes hintPulse {
+      0%, 100% { transform: scale(1);    opacity: 0.9; }
+      50%      { transform: scale(1.08); opacity: 1; }
+    }
+    @keyframes hintKnob {
+      0%, 100% { transform: translate(0, 0); }
+      25%      { transform: translate(-13px, 7px); }
+      75%      { transform: translate(13px, -7px); }
+    }
+
     /* ─── レベルアップ通知 ─── */
     #home-levelup-popup {
       position: fixed; left: 50%; top: 38%; transform: translateX(-50%);
@@ -855,6 +895,11 @@
     <div id="home-train-ui">
       <div id="home-train-timer" class="hidden"></div>
       <button id="btn-home-train-stop" class="hidden">修行をやめる</button>
+    </div>
+    <!-- 移動ガイド（初回ユーザー向け・左下） -->
+    <div id="home-move-hint">
+      <div class="hint-ring"><div class="hint-knob"></div></div>
+      <div class="hint-label">ドラッグで移動</div>
     </div>
   </div>
 

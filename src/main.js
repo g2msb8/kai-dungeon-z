@@ -303,6 +303,8 @@ const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
+const moveHintEl     = document.getElementById('home-move-hint');
+let   moveHintDismissed = false; // 一度動かしたらガイドを消す
 
 shopEnterBtn.addEventListener('click', () => { showShopMenu(); });
 battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
@@ -891,6 +893,12 @@ function loop(now) {
     homeScene.setJoy(move);
     shopEnterBtn.classList.toggle('hidden', !homeScene.nearShop);
     battleEnterBtn.classList.toggle('hidden', !homeScene.nearBattle);
+
+    // 移動ガイド: 一度でも動かしたらフェードアウト
+    if (!moveHintDismissed && Math.hypot(move.x, move.y) > 0.05) {
+      moveHintDismissed = true;
+      if (moveHintEl) moveHintEl.classList.add('used');
+    }
 
     // 修行ボタン: 近くにいて修行中でなければ表示（MAX到達済みなら非表示）
     const canTrain = homeScene.nearTraining && !trainingActive && trainingLevel < MAX_TRAINING_LEVEL;
