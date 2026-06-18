@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { COLORS } from './core/Constants.js';
+import { NPC } from './NPC.js';
 
 export class HomeScene {
   constructor(canvas) {
@@ -38,6 +39,7 @@ export class HomeScene {
     this._splashParts  = [];
     this._isSitting    = false;
     this._elapsed      = 0;
+    this._npcs         = [];
 
     this._build();
     this._onResize();
@@ -57,6 +59,7 @@ export class HomeScene {
     this._buildTrainingSpot();
     this._buildBlacksmith();
     this._buildPlayer();
+    this._buildNPCs();
   }
 
   _buildLighting() {
@@ -363,6 +366,13 @@ export class HomeScene {
     }
   }
 
+  _buildNPCs() {
+    const count = 1 + Math.floor(Math.random() * 10); // 1〜10体
+    for (let i = 0; i < count; i++) {
+      this._npcs.push(new NPC(this.scene, i));
+    }
+  }
+
   _buildPlayer() {
     const h = buildHumanoid({
       skin:        COLORS.PLAYER_SKIN,
@@ -473,6 +483,9 @@ export class HomeScene {
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
     this._camTarget.set(p.x, p.y + 1.4, p.z - 1);
     this.camera.lookAt(this._camTarget);
+
+    // NPC 更新
+    for (const npc of this._npcs) npc.update(dt);
   }
 
   // ─── 修行：あぐらポーズ ON/OFF ────────────────────────────
