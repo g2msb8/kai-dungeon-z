@@ -266,6 +266,85 @@
       background: linear-gradient(180deg, #80cbc4, #00695c);
       box-shadow: 0 4px 0 #004d40, 0 6px 18px rgba(0,0,0,0.35);
     }
+    #btn-home-forge-enter {
+      background: linear-gradient(180deg, #ffcc80, #bf360c);
+      box-shadow: 0 4px 0 #7f1c00, 0 6px 18px rgba(0,0,0,0.35);
+    }
+
+    /* ===== 鍛冶屋UI ===== */
+    #home-forge-overlay {
+      position: fixed; inset: 0; z-index: 40;
+      background: rgba(0,0,0,0.72);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 20px;
+    }
+    #home-forge-overlay.hidden { display: none; }
+    .forge-box {
+      background: linear-gradient(160deg, #2a1a0a, #3d2710);
+      border: 2px solid #a0622a;
+      border-radius: 18px;
+      padding: 28px 32px 24px;
+      min-width: 320px; max-width: 420px; width: 90%;
+      box-shadow: 0 0 40px rgba(255,100,0,0.35), 0 8px 32px rgba(0,0,0,0.7);
+    }
+    .forge-title {
+      font-size: 22px; font-weight: bold; color: #ffcc80;
+      text-align: center; margin-bottom: 16px; letter-spacing: 3px;
+      text-shadow: 0 0 12px rgba(255,150,0,0.8);
+    }
+    .forge-weapon-grid {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+      margin-bottom: 18px;
+    }
+    .forge-weapon-btn {
+      padding: 10px 16px; font-size: 14px; font-weight: bold; letter-spacing: 1px;
+      color: #fff; border: 2px solid #6b4226; border-radius: 10px;
+      background: linear-gradient(180deg, #4a2e14, #2d1a08);
+      cursor: pointer; transition: all 0.15s;
+      min-width: 100px; text-align: center;
+    }
+    .forge-weapon-btn:hover { border-color: #ff9944; background: linear-gradient(180deg, #6b3c18, #3d2210); }
+    .forge-weapon-btn.selected {
+      border-color: #44ff88; background: linear-gradient(180deg, #0a4020, #063018);
+      color: #88ffbb; box-shadow: 0 0 14px rgba(0,255,100,0.45);
+    }
+    .forge-weapon-bonus { font-size: 11px; color: #ffcc80; margin-top: 3px; }
+    #forge-ok-btn {
+      display: block; width: 100%; padding: 14px;
+      font-size: 18px; font-weight: bold; letter-spacing: 3px;
+      color: #fff; border: none; border-radius: 12px; cursor: pointer;
+      background: linear-gradient(180deg, #ff9800, #e65100);
+      box-shadow: 0 4px 0 #bf360c, 0 6px 18px rgba(0,0,0,0.4);
+      transition: transform 0.1s;
+    }
+    #forge-ok-btn:active { transform: scale(0.96); }
+    #forge-ok-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    #forge-close-btn {
+      position: absolute; top: 14px; right: 18px;
+      background: none; border: none; color: #a0622a;
+      font-size: 24px; cursor: pointer; line-height: 1;
+    }
+    #forge-close-btn:hover { color: #ffcc80; }
+    #forge-status-msg {
+      text-align: center; font-size: 15px; color: #ffcc80;
+      min-height: 24px; letter-spacing: 1px;
+    }
+    #forge-timer-display {
+      text-align: center; font-size: 28px; font-weight: bold;
+      color: #ff9944; letter-spacing: 2px;
+      text-shadow: 0 0 16px rgba(255,150,0,0.7);
+      min-height: 40px;
+    }
+    .forge-complete-msg {
+      font-size: 20px; font-weight: bold; color: #88ffbb;
+      text-align: center; letter-spacing: 2px;
+      text-shadow: 0 0 16px rgba(0,255,100,0.6);
+      animation: forgeCompleteAnim 0.5s ease-out;
+    }
+    @keyframes forgeCompleteAnim {
+      from { transform: scale(0.7); opacity: 0; }
+      to   { transform: scale(1.0); opacity: 1; }
+    }
 
     /* ===== 修行UI ===== */
     #home-train-ui {
@@ -752,11 +831,24 @@
       <button id="btn-home-shop-enter"   class="home-action-btn hidden">🏪 ショップを開く</button>
       <button id="btn-home-battle-enter" class="home-action-btn hidden">⚔️ バトルに行く</button>
       <button id="btn-home-train-enter"  class="home-action-btn hidden">🧘 修行をする</button>
+      <button id="btn-home-forge-enter"  class="home-action-btn hidden">🔨 武器を強化する</button>
     </div>
     <!-- 修行中UI -->
     <div id="home-train-ui">
       <div id="home-train-timer" class="hidden"></div>
       <button id="btn-home-train-stop" class="hidden">修行をやめる</button>
+    </div>
+  </div>
+
+  <!-- 鍛冶屋オーバーレイ（body直下） -->
+  <div id="home-forge-overlay" class="hidden">
+    <div class="forge-box" style="position:relative;">
+      <button id="forge-close-btn">✕</button>
+      <div class="forge-title">🔥 刀鍛冶屋</div>
+      <div id="forge-status-msg">強化したい武器を選んでください</div>
+      <div id="forge-timer-display"></div>
+      <div class="forge-weapon-grid" id="forge-weapon-grid"></div>
+      <button id="forge-ok-btn" disabled>OK — 強化を依頼する</button>
     </div>
   </div>
 

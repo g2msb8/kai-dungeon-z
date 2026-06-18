@@ -228,8 +228,11 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_next_stage');
   localStorage.removeItem('dz_potions');
   localStorage.removeItem('dz_training_level');
+  localStorage.removeItem('dz_enhance');
   potions = 0;
   trainingLevel = 0;
+  forgeActive = false;
+  forgeWeapon = null;
   stopTraining();
   updateCoinDisplay();
   refreshShopButtons();
@@ -272,11 +275,25 @@ document.querySelectorAll('.shop-buy-btn').forEach(btn => {
   });
 });
 
+// ─── 強化ボーナス (localStorage) ──────────────────────────
+function getEnhanceBonuses() {
+  try { return JSON.parse(localStorage.getItem('dz_enhance') || '{}'); } catch { return {}; }
+}
+function getEnhanceBonus(weaponType) {
+  return getEnhanceBonuses()[weaponType] ?? 0;
+}
+function addEnhanceBonus(weaponType) {
+  const b = getEnhanceBonuses();
+  b[weaponType] = (b[weaponType] ?? 0) + 1;
+  localStorage.setItem('dz_enhance', JSON.stringify(b));
+}
+
 // ─── ホーム画面 近接ボタン ────────────────────────────────
 const shopEnterBtn   = document.getElementById('btn-home-shop-enter');
 const battleEnterBtn = document.getElementById('btn-home-battle-enter');
 const trainEnterBtn  = document.getElementById('btn-home-train-enter');
 const trainStopBtn   = document.getElementById('btn-home-train-stop');
+const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -384,6 +401,109 @@ function _showMaxLevelEffect() {
     maxlevelEl.classList.remove('hidden');
     setTimeout(() => maxlevelEl.classList.add('hidden'), 4000);
   }, 600);
+}
+
+// ─── 鍛冶屋システム ───────────────────────────────────────
+const FORGE_DURATION = 20; // 秒
+
+const forgeOverlay  = document.getElementById('home-forge-overlay');
+const forgeGrid     = document.getElementById('forge-weapon-grid');
+const forgeOkBtn    = document.getElementById('forge-ok-btn');
+const forgeStatusEl = document.getElementById('forge-status-msg');
+const forgeTimerEl  = document.getElementById('forge-timer-display');
+
+let forgeActive      = false;
+let forgeTimer       = 0;
+let forgeWeapon      = null; // 現在強化中の武器種
+let forgeSelected    = null; // UIで選択中の武器種
+
+// forgeEnterBtn のクリックで UI を開く
+forgeEnterBtn.addEventListener('click', () => { _showForgeUI(); });
+document.getElementById('forge-close-btn').addEventListener('click', () => {
+  forgeOverlay.classList.add('hidden');
+});
+forgeOkBtn.addEventListener('click', () => {
+  if (!forgeSelected) return;
+  _startForge(forgeSelected);
+  forgeOverlay.classList.add('hidden');
+});
+
+function _showForgeUI() {
+  const owned    = getOwned();
+  const bonuses  = getEnhanceBonuses();
+  const WEAPON_NAMES = {
+    copper: '銅の剣', iron: '鉄の剣', diamond: 'ダイヤの剣',
+    netherite: 'ネザライト', light: '光の剣', blackhole: 'ブラックホール',
+    lightning: 'ライトニング', bubble: 'バブル', inferno: 'インフェルノ', ice: 'アイス',
+  };
+
+  forgeGrid.innerHTML = '';
+  forgeSelected = null;
+  forgeOkBtn.disabled = true;
+
+  if (forgeActive) {
+    // 強化中 → タイマー表示モード
+    forgeStatusEl.textContent = '強化中です…';
+    forgeTimerEl.textContent  = `⏳ 残り ${Math.ceil(forgeTimer)} 秒`;
+    forgeOkBtn.style.display  = 'none';
+  } else {
+    forgeStatusEl.textContent = '強化したい武器を選んでください';
+    forgeTimerEl.textContent  = '';
+    forgeOkBtn.style.display  = '';
+
+    // 所持武器一覧を表示
+    const weaponOrder = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
+    weaponOrder.forEach(id => {
+      if (!owned[id] && id !== 'copper') return; // copper は常に所持
+      const bonus = bonuses[id] ?? 0;
+      const btn   = document.createElement('button');
+      btn.className    = 'forge-weapon-btn';
+      btn.dataset.id   = id;
+      btn.innerHTML    = `${WEAPON_NAMES[id] ?? id}<div class="forge-weapon-bonus">強化: +${bonus}</div>`;
+      btn.addEventListener('click', () => {
+        forgeGrid.querySelectorAll('.forge-weapon-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        forgeSelected = id;
+        forgeOkBtn.disabled = false;
+      });
+      forgeGrid.appendChild(btn);
+    });
+  }
+
+  forgeOverlay.classList.remove('hidden');
+}
+
+function _startForge(weaponType) {
+  forgeActive = true;
+  forgeTimer  = FORGE_DURATION;
+  forgeWeapon = weaponType;
+}
+
+function _updateForgeTimer(dt) {
+  if (!forgeActive) return;
+  forgeTimer -= dt;
+  if (forgeTimer <= 0) {
+    forgeActive = false;
+    addEnhanceBonus(forgeWeapon);
+    _showForgeComplete(forgeWeapon);
+    forgeWeapon = null;
+  }
+}
+
+const WEAPON_NAMES_SHORT = {
+  copper: '銅の剣', iron: '鉄の剣', diamond: 'ダイヤの剣',
+  netherite: 'ネザライト', light: '光の剣', blackhole: 'ブラックホール',
+  lightning: 'ライトニング', bubble: 'バブル', inferno: 'インフェルノ', ice: 'アイス',
+};
+function _showForgeComplete(wt) {
+  const name = WEAPON_NAMES_SHORT[wt] ?? wt;
+  // 既存のレベルアップ通知を流用
+  levelupEl.textContent = `⚒️ ${name} 強化完成！`;
+  levelupEl.style.animation = 'none';
+  void levelupEl.offsetWidth;
+  levelupEl.style.animation = 'levelupAnim 2.8s forwards';
+  levelupEl.classList.remove('hidden');
+  setTimeout(() => levelupEl.classList.add('hidden'), 3000);
 }
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
@@ -564,11 +684,18 @@ function showBattleUI() {
   document.getElementById('hud').style.display = '';
 }
 
+// 武器・修行ボーナス・強化ボーナスをまとめて適用
+function applyWeaponBonuses() {
+  const wt = getBestWeapon();
+  game.player.setWeapon(wt);
+  game.player.setTrainingBonus(getTrainingBonus());
+  game.player.setEnhanceBonus(getEnhanceBonus(wt));
+}
+
 // ─── 現在のステージをリトライ（ステージを維持して再挑戦） ──
 function retryCurrentStage() {
   showBattleUI();
-  game.player.setWeapon(getBestWeapon());
-  game.player.setTrainingBonus(getTrainingBonus());
+  applyWeaponBonuses();
   if      (currentStage === 2) game.startStage2();
   else if (currentStage === 3) game.startStage3();
   else if (currentStage === 4) game.startStage4();
@@ -584,8 +711,7 @@ function retryCurrentStage() {
 function startGame() {
   showBattleUI();
   currentStage = 1;
-  game.player.setWeapon(getBestWeapon());
-  game.player.setTrainingBonus(getTrainingBonus());
+  applyWeaponBonuses();
   game.startStage();
   hud.reset();
   hud.setZombies(game.zombies.aliveCount);
@@ -708,12 +834,18 @@ function loop(now) {
     const canTrain = homeScene.nearTraining && !trainingActive && trainingLevel < MAX_TRAINING_LEVEL;
     trainEnterBtn.classList.toggle('hidden', !canTrain);
 
+    // 鍛冶屋ボタン: 近くにいて強化中でなければ表示
+    forgeEnterBtn.classList.toggle('hidden', !homeScene.nearBlacksmith);
+
     // 修行タイマー更新
     if (trainingActive) {
       trainingTimer -= dt;
       _updateTrainTimer();
       if (trainingTimer <= 0) _onTrainingLevelUp();
     }
+
+    // 鍛冶屋タイマー更新
+    _updateForgeTimer(dt);
   } else if (state === STATE.PLAYING) {
     game.update(dt, move);
     hud.setHP(game.player.hp);

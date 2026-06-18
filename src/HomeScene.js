@@ -26,12 +26,14 @@ export class HomeScene {
     this._playerFacing = 0;
     this._camTarget    = new THREE.Vector3();
     this._joy          = { x: 0, y: 0 };
-    this.nearShop      = false;
-    this.nearBattle    = false;
-    this.nearTraining  = false;
-    this._shopPos      = null;
-    this._jetPos       = null;
-    this._trainingPos  = null;
+    this.nearShop        = false;
+    this.nearBattle      = false;
+    this.nearTraining    = false;
+    this.nearBlacksmith  = false;
+    this._shopPos        = null;
+    this._jetPos         = null;
+    this._trainingPos    = null;
+    this._blacksmithPos  = null;
     this._waterfallTex = null;
     this._splashParts  = [];
     this._isSitting    = false;
@@ -53,6 +55,7 @@ export class HomeScene {
     this._buildShop();
     this._buildJet();
     this._buildTrainingSpot();
+    this._buildBlacksmith();
     this._buildPlayer();
   }
 
@@ -461,9 +464,10 @@ export class HomeScene {
     const p  = this._humanoid.root.position;
 
     // 近接判定
-    this.nearShop     = this._shopPos     ? p.distanceTo(this._shopPos)     < 5.5 : false;
-    this.nearBattle   = this._jetPos      ? p.distanceTo(this._jetPos)      < 5.5 : false;
-    this.nearTraining = this._trainingPos ? p.distanceTo(this._trainingPos) < 5.5 : false;
+    this.nearShop       = this._shopPos       ? p.distanceTo(this._shopPos)       < 5.5 : false;
+    this.nearBattle     = this._jetPos        ? p.distanceTo(this._jetPos)        < 5.5 : false;
+    this.nearTraining   = this._trainingPos   ? p.distanceTo(this._trainingPos)   < 5.5 : false;
+    this.nearBlacksmith = this._blacksmithPos ? p.distanceTo(this._blacksmithPos) < 5.5 : false;
 
     const desired = new THREE.Vector3(p.x, p.y + 4.5, p.z + 7.5);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
@@ -861,6 +865,108 @@ export class HomeScene {
       strut.position.set(wx, 0.57, wz);
       g.add(strut);
     }
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
+  // ─── 刀鍛冶屋 ────────────────────────────────────────────
+  // グループ位置(12,0,0)・rotation.y=-π/2 で西（中央）向き
+  _buildBlacksmith() {
+    const POS = new THREE.Vector3(12, 0, 0);
+    this._blacksmithPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = -Math.PI / 2; // 中央向き
+
+    const stoneM  = new THREE.MeshStandardMaterial({ color: 0x5a5248, roughness: 0.92 });
+    const darkM   = new THREE.MeshStandardMaterial({ color: 0x2e2a28, roughness: 0.95 });
+    const woodM   = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 0.85 });
+    const metalM  = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.5, metalness: 0.8 });
+    const emberM  = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xff2200, emissiveIntensity: 2.2, roughness: 0.9 });
+    const glowM   = new THREE.MeshStandardMaterial({ color: 0xff6600, emissive: 0xff3300, emissiveIntensity: 1.5, roughness: 1.0 });
+
+    // ── 外壁（石造り）──
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3.0, 3.0), stoneM);
+    wall.position.set(0, 1.5, -1.0);
+    g.add(wall);
+
+    // 屋根（切妻）
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.18, 1.7), darkM);
+    roofL.position.set(0, 3.04, -0.18);
+    roofL.rotation.z = 0.44;
+    g.add(roofL);
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.18, 1.7), darkM);
+    roofR.position.set(0, 3.04, -1.82);
+    roofR.rotation.z = -0.44;
+    g.add(roofR);
+
+    // 屋根の棟（中央）
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(4.7, 0.18, 0.18), darkM);
+    ridge.position.set(0, 3.62, -1.0);
+    g.add(ridge);
+
+    // 煙突
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.6, 0.55), stoneM);
+    chimney.position.set(0.8, 4.2, -1.3);
+    g.add(chimney);
+    const chimneyTop = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.12, 0.70), darkM);
+    chimneyTop.position.set(0.8, 5.05, -1.3);
+    g.add(chimneyTop);
+
+    // 炉（前面カウンター部）
+    const forgeBase = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 1.0), darkM);
+    forgeBase.position.set(0, 0.45, 0.55);
+    g.add(forgeBase);
+    const forgeFront = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.3, 0.55), stoneM);
+    forgeFront.position.set(0, 0.65, 1.0);
+    g.add(forgeFront);
+
+    // 炉内の燠火
+    const ember1 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 6, 5), emberM);
+    ember1.position.set(-0.25, 0.98, 1.0);
+    g.add(ember1);
+    const ember2 = new THREE.Mesh(new THREE.SphereGeometry(0.15, 5, 4), glowM);
+    ember2.position.set( 0.30, 0.95, 0.95);
+    g.add(ember2);
+    const ember3 = new THREE.Mesh(new THREE.SphereGeometry(0.10, 5, 4), glowM);
+    ember3.position.set( 0.05, 1.02, 1.05);
+    g.add(ember3);
+
+    // 炉の光
+    const forgeLight = new THREE.PointLight(0xff5500, 2.2, 6);
+    forgeLight.position.set(0, 1.4, 1.0);
+    g.add(forgeLight);
+    this._forgeLight = forgeLight;
+
+    // 金床（アンビル）
+    const anvilBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.36), metalM);
+    anvilBase.position.set(-0.9, 0.77, 0.6);
+    g.add(anvilBase);
+    const anvilTop = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.16, 0.40), metalM);
+    anvilTop.position.set(-0.9, 1.01, 0.6);
+    g.add(anvilTop);
+    const anvilHorn = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.10, 0.32, 6), metalM);
+    anvilHorn.rotation.z = Math.PI / 2;
+    anvilHorn.position.set(-0.65, 0.98, 0.6);
+    g.add(anvilHorn);
+
+    // ハンマー（アンビルの隣に立てかけ）
+    const hammerHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.90, 6), woodM);
+    hammerHandle.rotation.z = 0.35;
+    hammerHandle.position.set(-0.58, 0.78, 0.6);
+    g.add(hammerHandle);
+    const hammerHead = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.10, 0.10), metalM);
+    hammerHead.position.set(-0.44, 1.17, 0.6);
+    hammerHead.rotation.z = 0.35;
+    g.add(hammerHead);
+
+    // 看板「刀鍛冶屋」
+    const sign = this._makeTextSprite('刀鍛冶屋');
+    sign.scale.set(3.6, 1.2, 1);
+    sign.position.set(0, 3.9, 1.05);
+    g.add(sign);
 
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.scene.add(g);
