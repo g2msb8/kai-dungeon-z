@@ -70,7 +70,7 @@ export class Game {
     const aliveClones = [];
     for (const c of this.player._clones) {
       if (c.alive) {
-        const kills = c.update(dt, this.zombies.zombies);
+        const kills = c.update(dt, this.zombies.allTargets);
         for (let k = 0; k < kills; k++) this.zombies.recordKill();
         aliveClones.push(c);
       } else {

@@ -418,7 +418,7 @@ export class HomeScene {
     if (this._fanBlades) this._fanBlades.rotation.y = this._fanAngle;
 
     // 滝テクスチャスクロール
-    if (this._waterfallTex) this._waterfallTex.offset.y -= dt * 0.85;
+    if (this._waterfallTex) this._waterfallTex.offset.y += dt * 0.85;
 
     // しぶき粒子ボビング
     for (const sp of this._splashParts) {

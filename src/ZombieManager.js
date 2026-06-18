@@ -248,6 +248,15 @@ export class ZombieManager {
   // 分身がゾンビを倒したときに呼ばれる（kill カウント更新）
   recordKill() { this._onKill(); }
 
+  // 分身が攻撃できる全ターゲット（ゾンビ＋ボス＋紫ゾンビ）
+  get allTargets() {
+    return [
+      ...this.zombies,
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ];
+  }
+
   // 分身がいる場合: ゾンビの最近接ターゲットを選ぶ
   _nearestTarget(zombie, player, clones) {
     let best = player;
@@ -583,21 +592,20 @@ export class ZombieManager {
   _spawnBubbleVfx(pos) {
     const COLS = [0x40e0d0, 0x87ceeb, 0x00ced1, 0xe0f7ff, 0xb2ebf2];
     for (let i = 0; i < 40; i++) {
-      const angle     = (i / 40) * Math.PI * 2 + rand(-0.15, 0.15);
-      const elevation = rand(0.1, Math.PI * 0.8);
-      const speed     = 4 + Math.random() * 5;
-      const size      = 0.18 + Math.random() * 0.12;
+      const angle = (i / 40) * Math.PI * 2 + rand(-0.15, 0.15);
+      const speed = 5 + Math.random() * 5;
+      const size  = 0.18 + Math.random() * 0.12;
       const geo  = new THREE.SphereGeometry(size, 6, 6);
       const mat  = new THREE.MeshBasicMaterial({ color: COLS[i % 5] });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(pos.x, pos.y + 1.2, pos.z);
       this.scene.add(mesh);
       this._particles.push({
-        mesh, life: 1.2,
-        vx: Math.sin(angle) * Math.cos(elevation) * speed,
-        vy: Math.sin(elevation) * speed + 1.5,
-        vz: Math.cos(angle) * Math.cos(elevation) * speed,
-        gravity: false,
+        mesh, life: 1.4,
+        vx: Math.sin(angle) * speed,
+        vy: rand(0.5, 1.5),
+        vz: Math.cos(angle) * speed,
+        gravity: true,
       });
     }
   }
