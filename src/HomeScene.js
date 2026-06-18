@@ -547,46 +547,48 @@ export class HomeScene {
   }
 
   // ─── 修行スポット（池＋滝＋竹） ─────────────────────────────
+  // グループ rotation.y = π/2 のため: local +Z → world +X（中央方向）
+  // 崖・滝は中央から遠い側（local -Z）に置く
   _buildTrainingSpot() {
     const POS = new THREE.Vector3(-12, 0, 0);
     this._trainingPos = POS.clone();
 
     const g = new THREE.Group();
     g.position.copy(POS);
-    g.rotation.y = Math.PI / 2; // 中央に向く（東向き）
+    g.rotation.y = Math.PI / 2; // 東向き（プレイヤー方向）
 
     const stone  = new THREE.MeshStandardMaterial({ color: 0x7a7a6a, roughness: 0.95 });
     const stDark = new THREE.MeshStandardMaterial({ color: 0x52524a, roughness: 0.95 });
 
-    // ── 崖壁（滝のバック） ──
+    // ── 崖壁（壁側・local -Z → world 奥）──
     const cliff = new THREE.Mesh(new THREE.BoxGeometry(5.0, 4.8, 1.0), stone);
-    cliff.position.set(0, 2.4, 2.3);
+    cliff.position.set(0, 2.4, -2.3);
     cliff.castShadow = true;
     g.add(cliff);
 
     const cliffL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.8, 1.1), stDark);
-    cliffL.position.set(-2.6, 1.9, 2.1);
+    cliffL.position.set(-2.6, 1.9, -2.1);
     g.add(cliffL);
     const cliffR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.8, 1.1), stDark);
-    cliffR.position.set( 2.6, 1.9, 2.1);
+    cliffR.position.set( 2.6, 1.9, -2.1);
     g.add(cliffR);
 
-    // 崖上の小岩
     const capRock = new THREE.Mesh(new THREE.BoxGeometry(5.4, 0.4, 1.1), stDark);
-    capRock.position.set(0, 5.0, 2.3);
+    capRock.position.set(0, 5.0, -2.3);
     g.add(capRock);
 
-    // ── 滝（アニメーション付き平面） ──
+    // ── 滝（崖の前面・local -Z 側）──
+    // PlaneGeometry 法線: local +Z → world +X（プレイヤー向き）でFrontSideで見える
     this._waterfallTex = this._makeWaterfallTexture();
     const fallMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(2.0, 3.8),
       new THREE.MeshStandardMaterial({
-        map: this._waterfallTex, transparent: true, opacity: 0.88,
-        roughness: 0.1, side: THREE.FrontSide,
-        emissive: 0x224488, emissiveIntensity: 0.18,
+        map: this._waterfallTex, transparent: true, opacity: 0.92,
+        roughness: 0.1, side: THREE.DoubleSide,
+        emissive: 0x2255aa, emissiveIntensity: 0.28,
       }),
     );
-    fallMesh.position.set(0, 1.9, 1.78);
+    fallMesh.position.set(0, 1.9, -1.55);
     g.add(fallMesh);
 
     // ── 池 ──
@@ -600,7 +602,6 @@ export class HomeScene {
     pond.position.y = 0.01;
     g.add(pond);
 
-    // 池中央のきらめき
     const pondGlow = new THREE.Mesh(
       new THREE.CircleGeometry(1.0, 24),
       new THREE.MeshStandardMaterial({
@@ -612,7 +613,7 @@ export class HomeScene {
     pondGlow.position.y = 0.012;
     g.add(pondGlow);
 
-    // ── しぶき粒子 ──
+    // ── しぶき粒子（滝の根元 local z ≈ -1.2）──
     const spMat = new THREE.MeshStandardMaterial({
       color: 0xb8e4ff, transparent: true, opacity: 0.72,
       emissive: 0x70b8f0, emissiveIntensity: 0.5,
@@ -623,7 +624,7 @@ export class HomeScene {
       const a = Math.random() * Math.PI * 2;
       const s = 0.04 + Math.random() * 0.055;
       const sp = new THREE.Mesh(new THREE.SphereGeometry(s, 5, 5), spMat);
-      sp.position.set(Math.cos(a) * r, 0.06 + Math.random() * 0.18, Math.sin(a) * r + 1.3);
+      sp.position.set(Math.cos(a) * r, 0.06 + Math.random() * 0.18, Math.sin(a) * r - 1.2);
       sp._baseY  = sp.position.y;
       sp._speed  = 0.6 + Math.random() * 1.1;
       sp._offset = Math.random() * Math.PI * 2;
@@ -633,9 +634,14 @@ export class HomeScene {
 
     // ── 池の周りの石 ──
     const ROCKS = [
-      [2.1,0,-0.4],[-2.1,0,-0.3],[1.6,0,1.1],[-1.6,0,0.9],
-      [0.9,0,2.0],[-1.0,0,2.1],[2.3,0,0.8],[-2.3,0,0.7],
-      [0.2,0,2.4],[-0.4,0,2.5],
+      // 左右サイド
+      [ 2.1, 0,  0.1], [-2.1, 0,  0.2],
+      [ 2.3, 0, -0.4], [-2.3, 0, -0.3],
+      // 池奥（滝側）
+      [ 0.9, 0, -1.4], [-0.8, 0, -1.5],
+      [ 1.5, 0, -1.0], [-1.5, 0, -0.9],
+      // 池手前（座石側）
+      [ 0.6, 0,  0.9], [-0.7, 0,  0.8],
     ];
     ROCKS.forEach(([rx,,rz]) => {
       const s = 0.18 + Math.random() * 0.22;
@@ -649,11 +655,11 @@ export class HomeScene {
       g.add(r);
     });
 
-    // ── 竹 ──
+    // ── 竹（崖側に配置 local z < 0）──
     const bambooM = new THREE.MeshStandardMaterial({ color: 0x5a8228, roughness: 0.8 });
     const nodeM   = new THREE.MeshStandardMaterial({ color: 0x384f18, roughness: 0.85 });
     const leafM   = new THREE.MeshStandardMaterial({ color: 0x3a6a1e, roughness: 0.9, side: THREE.DoubleSide });
-    [[-2.9,-1.9],[-3.1,-1.2],[-2.7,-2.5],[2.9,-1.9],[3.1,-2.3]].forEach(([bx, bz]) => {
+    [[-2.9,-1.9],[-3.1,-1.2],[-2.7,-2.0],[2.9,-1.9],[3.1,-2.0]].forEach(([bx, bz]) => {
       const h = 2.8 + Math.random() * 1.8;
       const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.068, h, 7), bambooM);
       stalk.position.set(bx, h / 2, bz);
@@ -676,18 +682,18 @@ export class HomeScene {
       }
     });
 
-    // ── 修行台（座石） ──
+    // ── 修行台（座石）プレイヤー側 local +Z ──
     const seatM = new THREE.Mesh(
       new THREE.CylinderGeometry(0.58, 0.62, 0.20, 10),
       new THREE.MeshStandardMaterial({ color: 0x625244, roughness: 0.92 }),
     );
-    seatM.position.set(0, 0.10, -0.9);
+    seatM.position.set(0, 0.10, 0.9);
     seatM.castShadow = true;
     g.add(seatM);
 
-    // ── 水辺の光 ──
-    const wLight = new THREE.PointLight(0x40a8d8, 1.4, 9);
-    wLight.position.set(0, 1.8, 0.8);
+    // ── 水辺の光（滝と池の間）──
+    const wLight = new THREE.PointLight(0x40a8d8, 1.6, 10);
+    wLight.position.set(0, 2.0, -0.8);
     g.add(wLight);
 
     g.traverse(o => { if (o.isMesh) o.receiveShadow = true; });
