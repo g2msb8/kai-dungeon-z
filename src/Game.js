@@ -168,7 +168,7 @@ export class Game {
     this._updateCamera(1, true);
   }
 
-  startStage7() {
+  startStage6() {
     this._clearStageGroup();
     const { group, bounds } = buildDemonBiome(this.scene);
     this._stageGroup = group;
@@ -178,11 +178,11 @@ export class Game {
     this.sun.color.set(0x8800aa);
 
     this.player.reset();
-    this.zombies.setupStage7();
+    this.zombies.setupStage6();
     this._updateCamera(1, true);
   }
 
-  startStage8() {
+  startStage7() {
     this._clearStageGroup();
     const { group, bounds } = buildHeavenBiome(this.scene);
     this._stageGroup = group;
@@ -192,7 +192,7 @@ export class Game {
     this.sun.color.set(0xffffff);
 
     this.player.reset();
-    this.zombies.setupStage8();
+    this.zombies.setupStage7();
     this._updateCamera(1, true);
   }
 

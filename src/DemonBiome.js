@@ -1,6 +1,6 @@
 // ステージ7「魔界バイオーム」の環境。
 import * as THREE from 'three';
-import { STAGE7 } from './core/Constants.js';
+import { STAGE6 } from './core/Constants.js';
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 
@@ -9,7 +9,7 @@ export function buildDemonBiome(scene) {
 
   // 暗い地面（赤黒）
   const gnd = new THREE.MeshStandardMaterial({ color: 0x1a0010, roughness: 1 });
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(STAGE7.RADIUS + 8, 60), gnd);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(STAGE6.RADIUS + 8, 60), gnd);
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   group.add(ground);
@@ -18,7 +18,7 @@ export function buildDemonBiome(scene) {
   const patchMat1 = new THREE.MeshStandardMaterial({ color: 0x2a0018, roughness: 1 });
   const patchMat2 = new THREE.MeshStandardMaterial({ color: 0x1e000e, roughness: 1 });
   for (let i = 0; i < 40; i++) {
-    const r = Math.random() * STAGE7.RADIUS;
+    const r = Math.random() * STAGE6.RADIUS;
     const a = Math.random() * Math.PI * 2;
     const sz = 1.5 + Math.random() * 4;
     const patch = new THREE.Mesh(new THREE.CircleGeometry(sz, 7), Math.random() > 0.5 ? patchMat1 : patchMat2);
@@ -33,7 +33,7 @@ export function buildDemonBiome(scene) {
     emissive: 0x111100, emissiveIntensity: 0.08,
   });
   for (let i = 0; i < 18; i++) {
-    const r = 4 + Math.random() * (STAGE7.RADIUS - 5);
+    const r = 4 + Math.random() * (STAGE6.RADIUS - 5);
     const a = Math.random() * Math.PI * 2;
     const skel = makeSkeleton(boneMat);
     skel.position.set(Math.sin(a) * r, 0, Math.cos(a) * r);
@@ -46,7 +46,7 @@ export function buildDemonBiome(scene) {
     emissive: 0x330008, emissiveIntensity: 0.5,
   });
   for (let i = 0; i < 10; i++) {
-    const r = 6 + Math.random() * (STAGE7.RADIUS - 6);
+    const r = 6 + Math.random() * (STAGE6.RADIUS - 6);
     const a = Math.random() * Math.PI * 2;
     const h = 1.5 + Math.random() * 2.5;
     const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.5, h, 0.5), pillarMat);
@@ -57,10 +57,10 @@ export function buildDemonBiome(scene) {
   }
 
   scene.add(group);
-  scene.fog = new THREE.Fog(0x0e0010, 10, STAGE7.RADIUS + 6);
+  scene.fog = new THREE.Fog(0x0e0010, 10, STAGE6.RADIUS + 6);
   scene.background = new THREE.Color(0x120018);
 
-  return { group, bounds: { radius: STAGE7.RADIUS } };
+  return { group, bounds: { radius: STAGE6.RADIUS } };
 }
 
 function makeSkeleton(mat) {

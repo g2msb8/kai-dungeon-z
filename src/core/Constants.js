@@ -195,14 +195,14 @@ export const STAGE5 = {
   DROP: { STONE: 0.50, ORE: 0.50 },
 };
 
-export const STAGE7 = {
+export const STAGE6 = {
   NAME: '魔界バイオーム',
   PURPLE_COUNT: 3,
   RADIUS: 38,
   DROP: { STONE: 0.45, ORE: 0.55 },
 };
 
-export const STAGE8 = {
+export const STAGE7 = {
   NAME: '天国バイオーム',
   ARCHER_COUNT: 1,
   MINI_ZOMBIE_COUNT: 2,

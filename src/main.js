@@ -13,8 +13,8 @@ import { Stage2Opening }  from './ui/Stage2Opening.js';
 import { Stage3Opening }  from './ui/Stage3Opening.js';
 import { Stage4Opening }  from './ui/Stage4Opening.js';
 import { Stage5Opening }  from './ui/Stage5Opening.js';
+import { Stage6Opening }  from './ui/Stage6Opening.js';
 import { Stage7Opening }  from './ui/Stage7Opening.js';
-import { Stage8Opening }  from './ui/Stage8Opening.js';
 
 const STATE = {
   HOME:           'home',
@@ -60,8 +60,8 @@ const screens = new Screens({
     else if (currentStage === 2) startStage3Opening();
     else if (currentStage === 3) startStage4Opening();
     else if (currentStage === 4) startStage5Opening();
-    else if (currentStage === 5) startStage7Opening();
-    else if (currentStage === 7) startStage8Opening();
+    else if (currentStage === 5) startStage6Opening();
+    else if (currentStage === 6) startStage7Opening();
   },
 });
 
@@ -520,10 +520,10 @@ game.zombies.onKill = ({ drops, remaining }) => {
 game.zombies.onCleared = () => {
   if (state !== STATE.PLAYING) return;
   state = STATE.CLEAR;
-  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 250, 7: 350, 8: 500 };
+  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 250, 6: 300, 7: 350 };
   addCoins(coinMap[currentStage] ?? 50);
-  // ステージ進行: 1→2→3→4→5→7→8→全クリ
-  const nextMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 7, 7: 8 };
+  // ステージ進行: 1→2→3→4→5→6→7→全クリ
+  const nextMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7 };
   const next = nextMap[currentStage];
   if (next) {
     localStorage.setItem('dz_next_stage', String(next));
@@ -708,8 +708,8 @@ function retryCurrentStage() {
   else if (currentStage === 3) game.startStage3();
   else if (currentStage === 4) game.startStage4();
   else if (currentStage === 5) game.startStage5();
+  else if (currentStage === 6) game.startStage6();
   else if (currentStage === 7) game.startStage7();
-  else if (currentStage === 8) game.startStage8();
   else                         game.startStage();
   hud.reset();
   hud.setZombies(game.zombies.aliveCount);
@@ -802,6 +802,23 @@ function startStage5Opening() {
   op.start();
 }
 
+// ─── ステージ6 オープニング → ゲーム開始 ──────────────────
+function startStage6Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  const op = new Stage6Opening(() => {
+    showBattleUI();
+    currentStage = 6;
+    applyWeaponBonuses();
+    game.startStage6();
+    hud.reset();
+    hud.setZombies(game.zombies.aliveCount);
+    state = STATE.PLAYING;
+    updatePotionBtn();
+  });
+  op.start();
+}
+
 // ─── ステージ7 オープニング → ゲーム開始 ──────────────────
 function startStage7Opening() {
   screens.hideAll();
@@ -811,23 +828,6 @@ function startStage7Opening() {
     currentStage = 7;
     applyWeaponBonuses();
     game.startStage7();
-    hud.reset();
-    hud.setZombies(game.zombies.aliveCount);
-    state = STATE.PLAYING;
-    updatePotionBtn();
-  });
-  op.start();
-}
-
-// ─── ステージ8 オープニング → ゲーム開始 ──────────────────
-function startStage8Opening() {
-  screens.hideAll();
-  homeEl.classList.add('hidden');
-  const op = new Stage8Opening(() => {
-    showBattleUI();
-    currentStage = 8;
-    applyWeaponBonuses();
-    game.startStage8();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
     state = STATE.PLAYING;
@@ -959,8 +959,8 @@ window.__dz = {
   startStage3Opening,
   startStage4Opening,
   startStage5Opening,
+  startStage6Opening,
   startStage7Opening,
-  startStage8Opening,
   pauseLoop()  { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } },
   resumeLoop() { if (!rafId) { last = performance.now(); rafId = requestAnimationFrame(loop); } },
 };

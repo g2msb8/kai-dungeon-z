@@ -7,7 +7,7 @@ import { MiniZombie } from './MiniZombie.js';
 import { PurpleZombie } from './PurpleZombie.js';
 import { Boss } from './Boss.js';
 import { ArcherZombie } from './ArcherZombie.js';
-import { STAGE, STAGE2, STAGE3, STAGE4, STAGE5, STAGE7, STAGE8, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL, WEAPONS } from './core/Constants.js';
+import { STAGE, STAGE2, STAGE3, STAGE4, STAGE5, STAGE6, STAGE7, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL, WEAPONS } from './core/Constants.js';
 import { soundManager } from './SoundManager.js';
 
 export class ZombieManager {
@@ -92,16 +92,16 @@ export class ZombieManager {
     for (let i = 0; i < STAGE5.ZOMBIE_COUNT; i++) this._spawnZombie(miniCount + i, total);
   }
 
-  // stage7: 魔界バイオーム — 紫の瞳ゾンビ3体（通常ゾンビ枠として直接スポーン）
-  setupStage7() {
+  // stage6: 魔界バイオーム — 紫の瞳ゾンビ3体（通常ゾンビ枠として直接スポーン）
+  setupStage6() {
     this.clear();
     this._hasPurple    = false;
     this._hasBoss      = false;
-    this._stageDrop    = STAGE7.DROP;
-    const n = STAGE7.PURPLE_COUNT;
+    this._stageDrop    = STAGE6.DROP;
+    const n = STAGE6.PURPLE_COUNT;
     for (let i = 0; i < n; i++) {
       const ang = (i / n) * Math.PI * 2 + rand(-0.3, 0.3);
-      const r   = rand(12, STAGE7.RADIUS - 6);
+      const r   = rand(12, STAGE6.RADIUS - 6);
       const pos = new THREE.Vector3(Math.sin(ang) * r, 0, Math.cos(ang) * r);
       const z   = new PurpleZombie(pos);
       this.scene.add(z.root);
@@ -109,19 +109,19 @@ export class ZombieManager {
     }
   }
 
-  // stage8: 天国バイオーム — 弓矢ゾンビ + チビゾンビ2
-  setupStage8() {
+  // stage7: 天国バイオーム — 弓矢ゾンビ + チビゾンビ2
+  setupStage7() {
     this.clear();
     this._hasPurple    = false;
     this._hasBoss      = false;
-    this._stageDrop    = STAGE8.DROP;
-    const miniCount    = STAGE8.MINI_ZOMBIE_COUNT;
-    const archerCount  = STAGE8.ARCHER_COUNT;
+    this._stageDrop    = STAGE7.DROP;
+    const miniCount    = STAGE7.MINI_ZOMBIE_COUNT;
+    const archerCount  = STAGE7.ARCHER_COUNT;
     const total        = miniCount + archerCount;
     for (let i = 0; i < miniCount; i++) this._spawnMiniZombie(i, total);
     for (let i = 0; i < archerCount; i++) {
       const ang = ((miniCount + i) / total) * Math.PI * 2 + rand(-0.3, 0.3);
-      const r   = rand(14, STAGE8.RADIUS - 4);
+      const r   = rand(14, STAGE7.RADIUS - 4);
       const pos = new THREE.Vector3(Math.sin(ang) * r, 0, Math.cos(ang) * r);
       const z   = new ArcherZombie(pos, this.scene);
       this.zombies.push(z);

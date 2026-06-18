@@ -1,5 +1,5 @@
-// ステージ7オープニング：天国バイオーム
-export class Stage7Opening {
+// ステージ6オープニング：魔界バイオーム
+export class Stage6Opening {
   constructor(onComplete) {
     this._onComplete = onComplete;
     this._el = null;
@@ -13,7 +13,7 @@ export class Stage7Opening {
       display: 'flex', flexDirection: 'column',
       alignItems: 'center', justifyContent: 'center',
       fontFamily: '-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif',
-      transition: 'background 1.2s',
+      transition: 'background 1.0s',
       userSelect: 'none',
     });
     document.body.appendChild(this._el);
@@ -21,51 +21,57 @@ export class Stage7Opening {
   }
 
   _scene1() {
-    this._el.style.background = 'rgba(10, 0, 20, 0.95)';
+    this._el.style.background = 'rgba(8, 0, 18, 0.95)';
 
-    const title = this._text('〜 魔界 クリア 〜', '22px', '#cc66ff', 'normal', '0');
+    const title = this._text('〜 氷のバイオーム クリア 〜', '22px', '#88ccff', 'normal', '0');
     this._el.appendChild(title);
 
-    const msg1 = this._text('魔界の怪物を全て倒した…！', '20px', '#dd88ff', 'bold');
+    const msg1 = this._text('凍える世界を突き破った！', '20px', '#aaddff', 'bold');
     msg1.style.opacity = '0';
     msg1.style.transition = 'opacity 0.9s';
     msg1.style.marginTop = '18px';
     this._el.appendChild(msg1);
 
-    const msg2 = this._text('突如　眩い光が包み込む…', '17px', 'rgba(255,240,180,0.85)');
+    const msg2 = this._text('しかし…　空気が歪む。', '17px', 'rgba(200,100,255,0.85)');
     msg2.style.opacity = '0';
     msg2.style.transition = 'opacity 0.8s';
     msg2.style.marginTop = '12px';
     this._el.appendChild(msg2);
 
-    this._t(() => { msg1.style.opacity = '1'; this._speak('魔界の怪物を全て倒した！', 0.82, 0.88); }, 800);
-    this._t(() => { msg2.style.opacity = '1'; this._speak('眩い光が…', 0.88, 0.85); }, 2600);
-    this._t(() => this._scene2(), 5500);
+    const msg3 = this._text('禍々しい瘴気が漂ってきた…', '16px', 'rgba(180,80,255,0.70)');
+    msg3.style.opacity = '0';
+    msg3.style.transition = 'opacity 0.7s';
+    msg3.style.marginTop = '10px';
+    this._el.appendChild(msg3);
+
+    this._t(() => { msg1.style.opacity = '1'; this._speak('凍える世界を突き破った！', 0.78, 0.88); }, 800);
+    this._t(() => { msg2.style.opacity = '1'; }, 2400);
+    this._t(() => { msg3.style.opacity = '1'; this._speak('禍々しい瘴気が…', 0.55, 0.72); }, 3800);
+    this._t(() => this._scene2(), 6200);
   }
 
   _scene2() {
-    this._el.style.background = 'radial-gradient(ellipse at 50% 30%, #ffffff 0%, #b0d4ff 60%, #80b8f8 100%)';
+    this._el.style.background = 'radial-gradient(ellipse at 50% 60%, #2a0040 0%, #0a0015 100%)';
     this._el.innerHTML = '';
 
-    const biome = this._text('天国バイオーム', '54px', '#4488cc', 'bold', '0');
+    const biome = this._text('魔界バイオーム', '54px', '#cc66ff', 'bold', '0');
     biome.style.letterSpacing = '8px';
     biome.style.opacity = '0';
-    biome.style.textShadow = '0 0 30px rgba(200,230,255,0.9), 0 0 60px rgba(160,200,255,0.5)';
-    biome.style.transition = 'opacity 1.2s';
+    biome.style.textShadow = '0 0 30px rgba(180,50,255,0.9), 0 0 60px rgba(120,0,200,0.5)';
+    biome.style.transition = 'opacity 1.0s';
     this._el.appendChild(biome);
 
-    const sub = this._text('', '19px', 'rgba(20,60,120,0.95)');
+    const sub = this._text('', '19px', 'rgba(200,100,255,0.95)');
     sub.style.opacity = '0';
     sub.style.marginTop = '28px';
     sub.style.transition = 'opacity 0.6s';
     this._el.appendChild(sub);
 
     this._t(() => { biome.style.opacity = '1'; }, 200);
-    this._t(() => { sub.style.opacity = '1'; sub.textContent = '「ここは…　天国？」'; this._speak('ここは天国？', 0.88, 0.88); }, 1400);
-    this._t(() => { sub.textContent = '「弓矢を持つ者が　空から現れた…！」'; this._speak('弓矢を持つ者が現れた！', 0.85, 0.90); }, 3000);
-    this._t(() => { sub.textContent = '「最後の戦いだ…！」'; this._speak('最後の戦いだ！', 0.82, 0.92); }, 4800);
-    this._t(() => { sub.style.opacity = '0'; }, 6400);
-    this._t(() => this._finish(), 7200);
+    this._t(() => { sub.style.opacity = '1'; sub.textContent = '「ここは…　魔界か…！」'; this._speak('ここは魔界か！', 0.58, 0.78); }, 1200);
+    this._t(() => { sub.textContent = '「紫の瞳の怪物が待ち受けている…」'; this._speak('紫の瞳の怪物が！', 0.55, 0.75); }, 2800);
+    this._t(() => { sub.style.opacity = '0'; }, 4600);
+    this._t(() => this._finish(), 5400);
   }
 
   _text(content, size, color, weight = 'normal', marginTop = '0') {

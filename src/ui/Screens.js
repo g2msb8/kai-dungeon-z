@@ -34,8 +34,8 @@ export class Screens {
       3: '紫の目のゾンビを倒した！',
       4: '砂漠のゾンビをすべて倒した！',
       5: '氷のバイオームをクリアした！',
-      7: '魔界の怪物をすべて倒した！',
-      8: '天国バイオームをクリアした！ 全クリア！',
+      6: '魔界の怪物をすべて倒した！',
+      7: '天国バイオームをクリアした！ 全クリア！',
     };
     if (this._clearBig) {
       this._clearBig.textContent = msgMap[stage] ?? '全滅させた！';
@@ -43,8 +43,8 @@ export class Screens {
     this.clearResult.innerHTML =
       `見つけた素材<br>古びた石 × ${drops.stone}　／　鉄の鉱石 × ${drops.ore}`;
     if (this._nextBtn) {
-      // stage8 がラストステージなのでボタンを隠す
-      const hasNext = [1, 2, 3, 4, 5, 7].includes(stage);
+      // stage7 がラストステージなのでボタンを隠す
+      const hasNext = [1, 2, 3, 4, 5, 6].includes(stage);
       this._nextBtn.style.display = hasNext ? '' : 'none';
     }
     this.clear.classList.remove('hidden');
