@@ -965,6 +965,20 @@ window.__dz = {
   resumeLoop() { if (!rafId) { last = performance.now(); rafId = requestAnimationFrame(loop); } },
 };
 
+// ─── モバイル: 実ビューポート高を CSS 変数に反映 ───────────
+// iOS/Android のツールバー伸縮・回転で全画面オーバーレイが
+// ずれないよう、visualViewport の高さを --app-height に同期する。
+function _syncAppHeight() {
+  const h = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  document.documentElement.style.setProperty('--app-height', `${Math.round(h)}px`);
+}
+_syncAppHeight();
+window.addEventListener('resize', _syncAppHeight);
+window.addEventListener('orientationchange', _syncAppHeight);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', _syncAppHeight);
+}
+
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();

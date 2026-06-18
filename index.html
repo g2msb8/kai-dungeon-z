@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0e0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="format-detection" content="telephone=no" />
   <title>ダンジョンZ</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,7 +17,15 @@
       font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
       -webkit-user-select: none; user-select: none;
       -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+      overscroll-behavior: none;
       touch-action: none;
+    }
+    /* モバイル: 実ビューポート高に追従（ツールバー伸縮対策） */
+    #app, #hud, .screen, .shop-screen,
+    #screen-home, #screen-shop-menu, #screen-op-choice,
+    #home-forge-overlay {
+      height: var(--app-height, 100%);
     }
     #app { position: fixed; inset: 0; }
     canvas { display: block; }
@@ -61,7 +74,7 @@
     }
     #attack-btn {
       display: none; /* バトル開始時にJSで表示 */
-      position: fixed; right: 28px; bottom: 64px; width: 96px; height: 96px;
+      position: fixed; right: 28px; bottom: calc(64px + env(safe-area-inset-bottom)); width: 96px; height: 96px;
       border-radius: 50%; z-index: 20; pointer-events: auto; touch-action: none;
       background: radial-gradient(circle at 35% 30%, #ff8a5a, #c0392b);
       border: 3px solid rgba(255,255,255,0.6);
@@ -79,7 +92,7 @@
       background: radial-gradient(circle at center, rgba(10,20,10,0.82), rgba(0,0,0,0.94));
     }
     .screen.hidden { display: none; }
-    .screen h1 { font-size: 40px; letter-spacing: 4px; margin-bottom: 6px; text-shadow: 0 2px 8px #000; }
+    .screen h1 { font-size: clamp(28px, 8.5vw, 40px); letter-spacing: 4px; margin-bottom: 6px; text-shadow: 0 2px 8px #000; }
     .screen h1 .z { color: #6ee26e; }
     .screen .sub { font-size: 15px; opacity: 0.8; margin-bottom: 28px; line-height: 1.8; }
     .screen .big { font-size: 30px; margin-bottom: 16px; font-weight: bold; }
@@ -107,7 +120,7 @@
 
     /* ボスHPバー */
     #boss-hp-wrap {
-      position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(180px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
       width: 280px; z-index: 12; pointer-events: none;
       background: rgba(0,0,0,0.55); border-radius: 10px;
       padding: 7px 12px; border: 1px solid rgba(255,60,60,0.5);
@@ -136,7 +149,7 @@
     }
     /* ポーション回復ボタン */
     #potion-btn {
-      position: fixed; right: 28px; bottom: 176px;
+      position: fixed; right: 28px; bottom: calc(176px + env(safe-area-inset-bottom));
       width: 80px; height: 52px;
       border-radius: 14px; z-index: 20;
       pointer-events: auto; touch-action: none;
@@ -189,7 +202,7 @@
     .home-logo {
       position: absolute; top: 52px; left: 0; right: 0; z-index: 5;
       text-align: center;
-      font-size: 58px; font-weight: bold; letter-spacing: 6px;
+      font-size: clamp(40px, 13vw, 58px); font-weight: bold; letter-spacing: 6px;
       color: #222; text-shadow: 0 2px 0 rgba(0,0,0,0.10), 0 4px 16px rgba(0,0,0,0.08);
     }
     .home-logo .z {
@@ -241,7 +254,7 @@
 
     /* ===== Home 近接アクションボタン ===== */
     #home-proximity-wrap {
-      position: absolute; bottom: 64px; left: 0; right: 0;
+      position: absolute; bottom: calc(64px + env(safe-area-inset-bottom)); left: 0; right: 0;
       z-index: 5; display: flex; justify-content: center; gap: 16px;
       pointer-events: none;
     }
@@ -434,8 +447,9 @@
       position: fixed; inset: 0; z-index: 50;
       background: rgba(4, 8, 18, 0.97);
       display: flex; flex-direction: column; align-items: center;
-      padding: 28px 16px 40px;
+      padding: 28px 16px calc(40px + env(safe-area-inset-bottom));
       overflow-y: auto; -webkit-overflow-scrolling: touch;
+      touch-action: pan-y; overscroll-behavior: contain;
     }
     .shop-screen.hidden { display: none; }
 
@@ -608,7 +622,7 @@
     }
     #screen-op-choice.hidden { display: none; }
     .op-choice-logo {
-      font-size: 52px; font-weight: bold; letter-spacing: 6px;
+      font-size: clamp(38px, 12vw, 52px); font-weight: bold; letter-spacing: 6px;
       color: #e8f0e0; text-shadow: 0 0 30px rgba(110,226,110,0.4), 0 2px 8px #000;
       margin-bottom: 8px;
     }
@@ -754,7 +768,7 @@
 
     /* ハイパージャンプ ボタン（攻撃ボタンの隣・黄色） */
     #hyperjump-btn {
-      position: fixed; right: 140px; bottom: 64px; width: 80px; height: 80px;
+      position: fixed; right: 140px; bottom: calc(64px + env(safe-area-inset-bottom)); width: 80px; height: 80px;
       border-radius: 50%; z-index: 20; pointer-events: auto; touch-action: none;
       background: radial-gradient(circle at 35% 30%, #ffe066, #f6b300);
       border: 3px solid rgba(255,255,255,0.7);
