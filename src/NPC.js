@@ -11,8 +11,7 @@ const DEST = {
   battle:     new THREE.Vector3(  0, 0, 12),
 };
 
-const HAIR_COLORS  = [0x2a180a, 0x5c3d1e, 0xf0c060, 0xe04030, 0x111130, 0x888888];
-const CLOTH_COLORS = [0x111111, 0x336699, 0x993322, 0x228833, 0x994488, 0x4a4a2a];
+// 外見はプレイヤーと完全に同じ（ユーザー要件）
 
 const MOVE_SPEED = 3.2;   // m/s
 const ROOM_RADIUS = 16;   // 部屋の壁まで
@@ -22,17 +21,14 @@ function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
 
 export class NPC {
   constructor(scene, index) {
-    const hairColor  = HAIR_COLORS[index % HAIR_COLORS.length];
-    const clothColor = CLOTH_COLORS[Math.floor(index * 1.3) % CLOTH_COLORS.length];
-
     const h = buildHumanoid({
       skin:        COLORS.PLAYER_SKIN,
-      cloth:       clothColor,
+      cloth:       COLORS.PLAYER_CLOTH,
       pants:       COLORS.PLAYER_PANTS,
       pantsAccent: COLORS.PLAYER_PANTS_DARK,
       skinDark:    COLORS.PLAYER_SKIN,
       face:        'player',
-      hairColor,
+      hairColor:   COLORS.PLAYER_HAIR,
     });
     h.root.scale.setScalar(1.25);
     h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -42,7 +38,6 @@ export class NPC {
     this._scene   = scene;
     this._moving  = false;
     this._facing  = Math.random() * Math.PI * 2;
-    this._phase   = Math.random() * Math.PI * 2;
     this._target  = null;
     this._onArrive = null;
 
@@ -186,7 +181,7 @@ export class NPC {
         const nx = dx / dist, nz = dz / dist;
         this.root.position.x += nx * MOVE_SPEED * dt;
         this.root.position.z += nz * MOVE_SPEED * dt;
-        this._facing = Math.atan2(nx, nz);
+        this._facing = _lerpAngle(this._facing, Math.atan2(-nx, -nz), Math.min(1, 10 * dt));
         this.root.rotation.y = this._facing;
         this._moving = true;
         this._lastTravelTime = (this._lastTravelTime ?? 0) + dt;
@@ -205,12 +200,7 @@ export class NPC {
     }
 
     // 歩行アニメ
-    this._h.update(dt, {
-      moving: this._moving,
-      lockRightArm: false,
-      lockLeftArm: false,
-      speedScale: 1,
-    });
+    this._h.update(dt, { moving: this._moving });
   }
 
   dispose() {
@@ -228,4 +218,11 @@ export class NPC {
 function _clampToRoom(v) {
   const r = Math.hypot(v.x, v.z);
   if (r > ROOM_RADIUS) { v.x *= ROOM_RADIUS / r; v.z *= ROOM_RADIUS / r; }
+}
+
+function _lerpAngle(a, b, t) {
+  let d = b - a;
+  while (d >  Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
 }
