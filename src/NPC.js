@@ -15,12 +15,20 @@ const DEST = {
 // 外見はプレイヤーと完全に同じ（ユーザー要件）
 
 const MOVE_SPEED  = 3.2;   // m/s
+const ROOM_RADIUS = 16;    // 部屋の壁まで
 const JUMP_T      = 0.42;  // 1回のジャンプにかかる時間(秒)
 const JUMP_H      = 0.7;   // ジャンプの高さ(m)
 const SPIN_SPEED  = Math.PI * 2 * 2; // 回転速度(rad/s) ≒ 2回転/秒
 
+// 行動6「スキンを変えて再出現」用のランダム外見パレット
+const SKIN_TONES = [0xe8c49a, 0xd4a87a, 0xb88a60, 0x8d5524, 0xf0d0b0, 0xc68642];
+const CLOTHES    = [0x111111, 0x1565c0, 0xc62828, 0x2e7d32, 0x6a1b9a, 0xff8f00, 0x00838f, 0xeeeeee, 0x455a64];
+const PANTS_COL  = [0x3355bb, 0x333333, 0x5d4037, 0x37474f, 0x6d4c41, 0x283593];
+const HAIRS      = [0x2a180a, 0x5c3d1e, 0x111111, 0xc0a020, 0x884400, 0x999999, 0xaa3333];
+
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 export class NPC {
   constructor(scene, index) {
@@ -53,6 +61,9 @@ export class NPC {
     this._jumpsRemaining = 0;
     this._jumpT = 0;
     this._appearCenter = false;
+    this._swapPending  = false;
+    this._wanderTimer  = 0;
+    this._wTarget      = null;
 
     // セリフ吹き出し
     this._speechSprite = null;
@@ -68,22 +79,84 @@ export class NPC {
     this._pickBehavior();
   }
 
-  // ── 行動選択（セリフ＋対応アクションをランダムに）────────────────
+  // ── 行動選択（行動1〜8をランダムに）──────────────────────────────
   _pickBehavior() {
     const b = randInt(1, 8);
 
     if (b === 1) {
+      // その場で2秒待つ
+      this._wait(2);
+
+    } else if (b === 2) {
+      // 修行の滝に行って、その場で1〜20秒待つ
+      const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._wait(rand(1, 20)));
+
+    } else if (b === 3) {
+      // 鍛冶屋に行って、前で1〜5秒待つ
+      const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._wait(rand(1, 5)));
+
+    } else if (b === 4) {
+      // 2〜8秒間 走り回る
+      this._wander(rand(2, 8));
+
+    } else if (b === 5) {
+      // バトルの戦闘機の真ん中で急に消え、20〜50秒後にホームの真ん中に出てくる
+      const dest = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
+      this._moveTo(dest, () => {
+        this._clearSpeech();
+        this._vanish();
+        this._appearCenter = true;
+        this._state      = 'gone';
+        this._stateTimer = rand(20, 50);
+      });
+
+    } else if (b === 6) {
+      // どこかの向きへ一直線に歩いて急に消える → 10〜30秒後にスキンを変えて再出現
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = 4 + Math.random() * 6;
+      const dest  = new THREE.Vector3(
+        this.root.position.x + Math.sin(angle) * dist,
+        0,
+        this.root.position.z + Math.cos(angle) * dist,
+      );
+      _clampToRoom(dest);
+      this._moveTo(dest, () => {
+        this._clearSpeech();
+        this._vanish();
+        this._swapPending = true;
+        this._state      = 'gone';
+        this._stateTimer = rand(10, 30);
+      });
+
+    } else if (b === 7) {
+      // ショップに行って5〜17秒立ち止まる
+      const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._wait(rand(5, 17)));
+
+    } else {
+      // 前回のセリフ群からランダムに喋る
+      this._pickSpeech();
+    }
+  }
+
+  // ── セリフ（行動8）：8種のセリフ＋対応アクションからランダム ───────
+  _pickSpeech() {
+    const s = randInt(1, 8);
+
+    if (s === 1) {
       // やっほー！ → その場で3回転
       this._say('やっほー！', 2600);
       this._spin(3);
 
-    } else if (b === 2) {
+    } else if (s === 2) {
       // ショップ見に行こうよ！ → ショップに行って5秒立ち止まる
       this._say('ショップ見に行こうよ！', 4000);
       const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
       this._moveTo(dest, () => this._wait(5));
 
-    } else if (b === 3) {
+    } else if (s === 3) {
       // バトルに行こう、イェーイ！ → 戦闘機の真ん中で一瞬消え、
       // 10〜20秒後にホーム画面の真ん中にいきなり出てくる
       this._say('バトルに行こう、イェーイ！', 4000);
@@ -96,7 +169,7 @@ export class NPC {
         this._stateTimer = rand(10, 20);
       });
 
-    } else if (b === 4) {
+    } else if (s === 4) {
       // トイレ → 1分立ち止まり、終わったら「トイレ終わった」と喋って元に戻る
       this._say('ちょっとトイレ行ってくるから、ちょっとだけ立ち止まってるね。', 5000);
       this._wait(60, () => {
@@ -104,19 +177,19 @@ export class NPC {
         this._wait(2.5);
       });
 
-    } else if (b === 5) {
+    } else if (s === 5) {
       // ちょっとだけ修行 → 滝に行ってあぐらを組み10秒
       this._say('ちょっとだけ修行してくるわ。', 4000);
       const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
       this._moveTo(dest, () => this._enterSit(10));
 
-    } else if (b === 6) {
+    } else if (s === 6) {
       // 刀鍛冶に依頼 → 鍛冶屋に行って7秒立ち止まる
       this._say('ちょっと刀鍛冶に依頼してくるわ。', 4000);
       const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
       this._moveTo(dest, () => this._wait(7));
 
-    } else if (b === 7) {
+    } else if (s === 7) {
       // 賛成 → 普通のジャンプを5回
       this._say('賛成', 2600);
       this._jump(5);
@@ -126,6 +199,24 @@ export class NPC {
       this._say('確かに。', 2600);
       this._wait(2, () => this._jump(2));
     }
+  }
+
+  _wander(sec) {
+    this._wanderTimer = sec;
+    this._pickWanderTarget();
+    this._state = 'wandering';
+  }
+
+  _pickWanderTarget() {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 2 + Math.random() * 4;
+    const d = new THREE.Vector3(
+      this.root.position.x + Math.sin(angle) * dist,
+      0,
+      this.root.position.z + Math.cos(angle) * dist,
+    );
+    _clampToRoom(d);
+    this._wTarget = d;
   }
 
   // ── 状態変更ヘルパー ──────────────────────────────────────────
@@ -195,13 +286,77 @@ export class NPC {
     this.root.visible = true;
   }
 
+  // 行動6: 別人の見た目で作り直す（位置・向きは引き継ぐ）
+  _swapSkin() {
+    const pos  = this.root.position.clone();
+    const rotY = this.root.rotation.y;
+
+    // 旧モデルを破棄
+    this._clearSpeech();
+    this._scene.remove(this.root);
+    this.root.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        if (Array.isArray(o.material)) o.material.forEach(m => m.dispose());
+        else o.material.dispose();
+      }
+    });
+
+    // 新しいランダム外見で作り直す
+    const pantsCol = pick(PANTS_COL);
+    const h = buildHumanoid({
+      skin:        pick(SKIN_TONES),
+      cloth:       pick(CLOTHES),
+      pants:       pantsCol,
+      pantsAccent: _darken(pantsCol, 0.6),
+      face:        'player',
+      hairColor:   pick(HAIRS),
+    });
+    h.root.scale.setScalar(1.25);
+    h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    h.root.position.copy(pos);
+    h.root.rotation.y = rotY;
+
+    this._h   = h;
+    this.root = h.root;
+    this._facing = rotY;
+    this._scene.add(this.root);
+  }
+
   // ── 毎フレーム更新 ────────────────────────────────────────────
   update(dt) {
     switch (this._state) {
       case 'gone':
         this._stateTimer -= dt;
-        if (this._stateTimer <= 0) { this._appear(); this._goIdle(); }
+        if (this._stateTimer <= 0) {
+          if (this._swapPending) { this._swapSkin(); this._swapPending = false; }
+          this._appear();
+          this._goIdle();
+        }
         return;
+
+      case 'wandering': {
+        this._wanderTimer -= dt;
+        const dx = this._wTarget.x - this.root.position.x;
+        const dz = this._wTarget.z - this.root.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.25) {
+          this._pickWanderTarget();          // 次の目標へ
+        } else {
+          const nx = dx / dist, nz = dz / dist;
+          this.root.position.x += nx * MOVE_SPEED * 1.5 * dt;  // 走るので速め
+          this.root.position.z += nz * MOVE_SPEED * 1.5 * dt;
+          this._facing = _lerpAngle(this._facing, Math.atan2(-nx, -nz), Math.min(1, 12 * dt));
+          this.root.rotation.y = this._facing;
+        }
+        if (this._wanderTimer <= 0) {
+          this._goIdle();
+          this._h.update(dt, { moving: false });
+        } else {
+          this._h.update(dt, { moving: true, speedScale: 1.5 });
+        }
+        return;
+      }
 
       case 'moving':
         if (this._target) {
@@ -352,6 +507,19 @@ function _lerpAngle(a, b, t) {
   while (d >  Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
+}
+
+function _clampToRoom(v) {
+  const r = Math.hypot(v.x, v.z);
+  if (r > ROOM_RADIUS) { v.x *= ROOM_RADIUS / r; v.z *= ROOM_RADIUS / r; }
+}
+
+// 0xRRGGBB を f 倍（0〜1）に暗くする
+function _darken(hex, f) {
+  const r = Math.floor(((hex >> 16) & 0xff) * f);
+  const g = Math.floor(((hex >>  8) & 0xff) * f);
+  const b = Math.floor(( hex        & 0xff) * f);
+  return (r << 16) | (g << 8) | b;
 }
 
 // 日本語をおおよそ n 文字 / 句読点で折り返す
