@@ -491,7 +491,7 @@ export class HomeScene {
     this.camera.lookAt(this._camTarget);
 
     // NPC 更新
-    for (const npc of this._npcs) npc.update(dt);
+    for (const npc of this._npcs) npc.update(dt, this._npcs);
   }
 
   // ─── 修行：あぐらポーズ ON/OFF ────────────────────────────

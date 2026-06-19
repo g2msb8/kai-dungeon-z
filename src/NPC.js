@@ -88,6 +88,8 @@ export class NPC {
     this._swapPending  = false;
     this._wanderTimer  = 0;
     this._wTarget      = null;
+    this._actionTag    = null;  // 現在の行動タグ（参戦で他NPCがコピーする）
+    this._siblings     = null;  // 他のNPC一覧（update で受け取る）
 
     // セリフ吹き出し
     this._speechSprite = null;
@@ -105,123 +107,149 @@ export class NPC {
 
   // ── 行動選択（行動1〜8をランダムに）──────────────────────────────
   _pickBehavior() {
+    const tags = ['wait2', 'training', 'blacksmith', 'wander', 'battle', 'walkSwap', 'shop'];
     const b = randInt(1, 8);
+    if (b === 8) this._pickSpeech();         // 行動8: セリフ
+    else         this._startAction(tags[b - 1]);
+  }
 
-    if (b === 1) {
-      // その場で2秒待つ
-      this._wait(2);
+  // ── セリフ（行動8）：セリフ＋対応アクションからランダム ───────────
+  _pickSpeech() {
+    const s = randInt(1, 9);
 
-    } else if (b === 2) {
-      // 修行の滝に行って、その場で1〜20秒待つ
-      const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(rand(1, 20)));
-
-    } else if (b === 3) {
-      // 鍛冶屋に行って、前で1〜5秒待つ
-      const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(rand(1, 5)));
-
-    } else if (b === 4) {
-      // 2〜8秒間 走り回る
-      this._wander(rand(2, 8));
-
-    } else if (b === 5) {
-      // バトルの戦闘機の真ん中で急に消え、20〜50秒後にホームの真ん中に出てくる
-      const dest = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
-      this._moveTo(dest, () => {
-        this._clearSpeech();
-        this._vanish();
-        this._appearCenter = true;
-        this._state      = 'gone';
-        this._stateTimer = rand(20, 50);
-      });
-
-    } else if (b === 6) {
-      // どこかの向きへ一直線に歩いて急に消える → 10〜30秒後にスキンを変えて再出現
-      const angle = Math.random() * Math.PI * 2;
-      const dist  = 4 + Math.random() * 6;
-      const dest  = new THREE.Vector3(
-        this.root.position.x + Math.sin(angle) * dist,
-        0,
-        this.root.position.z + Math.cos(angle) * dist,
-      );
-      _clampToRoom(dest);
-      this._moveTo(dest, () => {
-        this._clearSpeech();
-        this._vanish();
-        this._swapPending = true;
-        this._state      = 'gone';
-        this._stateTimer = rand(10, 30);
-      });
-
-    } else if (b === 7) {
-      // ショップに行って5〜17秒立ち止まる
-      const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(rand(5, 17)));
-
+    if (s === 1) {
+      this._say('やっほー！', 2600);                 // その場で3回転
+      this._startAction('spin3');
+    } else if (s === 2) {
+      this._say('ショップ見に行こうよ！', 4000);      // ショップで5秒
+      this._startAction('shopWait5');
+    } else if (s === 3) {
+      this._say('バトルに行こう、イェーイ！', 4000);  // 戦闘機で消えて再出現
+      this._startAction('battleShort');
+    } else if (s === 4) {
+      this._say('ちょっとトイレ行ってくるから、ちょっとだけ立ち止まってるね。', 5000);
+      this._startAction('toilet');
+    } else if (s === 5) {
+      this._say('ちょっとだけ修行してくるわ。', 4000); // 滝であぐら10秒
+      this._startAction('sit10');
+    } else if (s === 6) {
+      this._say('ちょっと刀鍛冶に依頼してくるわ。', 4000); // 鍛冶屋で7秒
+      this._startAction('forgeWait7');
+    } else if (s === 7) {
+      this._say('賛成', 2600);                       // 普通のジャンプ5回
+      this._startAction('jump5');
+    } else if (s === 8) {
+      this._say('確かに。', 2600);                   // 2秒待って2回ジャンプ
+      this._startAction('jump2wait');
     } else {
-      // 前回のセリフ群からランダムに喋る
-      this._pickSpeech();
+      this._joinIn();                                // 参戦
     }
   }
 
-  // ── セリフ（行動8）：8種のセリフ＋対応アクションからランダム ───────
-  _pickSpeech() {
-    const s = randInt(1, 8);
-
-    if (s === 1) {
-      // やっほー！ → その場で3回転
-      this._say('やっほー！', 2600);
-      this._spin(3);
-
-    } else if (s === 2) {
-      // ショップ見に行こうよ！ → ショップに行って5秒立ち止まる
-      this._say('ショップ見に行こうよ！', 4000);
-      const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(5));
-
-    } else if (s === 3) {
-      // バトルに行こう、イェーイ！ → 戦闘機の真ん中で一瞬消え、
-      // 10〜20秒後にホーム画面の真ん中にいきなり出てくる
-      this._say('バトルに行こう、イェーイ！', 4000);
-      const dest = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
-      this._moveTo(dest, () => {
-        this._clearSpeech();
-        this._vanish();
-        this._appearCenter = true;
-        this._state      = 'gone';
-        this._stateTimer = rand(10, 20);
-      });
-
-    } else if (s === 4) {
-      // トイレ → 1分立ち止まり、終わったら「トイレ終わった」と喋って元に戻る
-      this._say('ちょっとトイレ行ってくるから、ちょっとだけ立ち止まってるね。', 5000);
-      this._wait(60, () => {
-        this._say('トイレ終わった', 3000);
-        this._wait(2.5);
-      });
-
-    } else if (s === 5) {
-      // ちょっとだけ修行 → 滝に行ってあぐらを組み10秒
-      this._say('ちょっとだけ修行してくるわ。', 4000);
-      const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._enterSit(10));
-
-    } else if (s === 6) {
-      // 刀鍛冶に依頼 → 鍛冶屋に行って7秒立ち止まる
-      this._say('ちょっと刀鍛冶に依頼してくるわ。', 4000);
-      const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(7));
-
-    } else if (s === 7) {
-      // 賛成 → 普通のジャンプを5回
-      this._say('賛成', 2600);
-      this._jump(5);
-
+  // 参戦：他のNPC1体（ランダム）の今の行動を、1回だけ同じに行う
+  _joinIn() {
+    this._say('参戦！', 2600);
+    const sibs = (this._siblings || []).filter(n =>
+      n !== this && n.root.visible && n._actionTag && n._actionTag !== 'join'
+    );
+    if (sibs.length) {
+      const target = pick(sibs);
+      this._startAction(target._actionTag);
     } else {
-      // 確かに。 → 2秒立ち止まってから普通のジャンプを2回
-      this._say('確かに。', 2600);
-      this._wait(2, () => this._jump(2));
+      // 真似する相手がいなければ少し待つ
+      this._actionTag = 'join';
+      this._wait(2);
+    }
+  }
+
+  // タグで指定した「行動（動き）」を1回実行する。セリフは含まない。
+  // 他NPCの _actionTag を渡せば同じ行動を再現できる（参戦用）。
+  _startAction(tag) {
+    this._actionTag = tag;
+    switch (tag) {
+      case 'wait2':
+        this._wait(2);
+        break;
+      case 'training': {
+        const d = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._wait(rand(1, 20)));
+        break;
+      }
+      case 'blacksmith': {
+        const d = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._wait(rand(1, 5)));
+        break;
+      }
+      case 'wander':
+        this._wander(rand(2, 8));
+        break;
+      case 'battle': {
+        const d = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
+        this._moveTo(d, () => {
+          this._clearSpeech(); this._vanish();
+          this._appearCenter = true;
+          this._state = 'gone'; this._stateTimer = rand(20, 50);
+        });
+        break;
+      }
+      case 'walkSwap': {
+        const a = Math.random() * Math.PI * 2;
+        const dist = 4 + Math.random() * 6;
+        const d = new THREE.Vector3(
+          this.root.position.x + Math.sin(a) * dist, 0,
+          this.root.position.z + Math.cos(a) * dist,
+        );
+        _clampToRoom(d);
+        this._moveTo(d, () => {
+          this._clearSpeech(); this._vanish();
+          this._swapPending = true;
+          this._state = 'gone'; this._stateTimer = rand(10, 30);
+        });
+        break;
+      }
+      case 'shop': {
+        const d = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._wait(rand(5, 17)));
+        break;
+      }
+      case 'spin3':
+        this._spin(3);
+        break;
+      case 'jump5':
+        this._jump(5);
+        break;
+      case 'jump2wait':
+        this._wait(2, () => this._jump(2));
+        break;
+      case 'sit10': {
+        const d = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._enterSit(10));
+        break;
+      }
+      case 'shopWait5': {
+        const d = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._wait(5));
+        break;
+      }
+      case 'battleShort': {
+        const d = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
+        this._moveTo(d, () => {
+          this._clearSpeech(); this._vanish();
+          this._appearCenter = true;
+          this._state = 'gone'; this._stateTimer = rand(10, 20);
+        });
+        break;
+      }
+      case 'forgeWait7': {
+        const d = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => this._wait(7));
+        break;
+      }
+      case 'toilet':
+        this._wait(60, () => { this._say('トイレ終わった', 3000); this._wait(2.5); });
+        break;
+      default:
+        this._wait(2);
     }
   }
 
@@ -341,7 +369,8 @@ export class NPC {
   }
 
   // ── 毎フレーム更新 ────────────────────────────────────────────
-  update(dt) {
+  update(dt, siblings) {
+    if (siblings) this._siblings = siblings;
     switch (this._state) {
       case 'gone':
         this._stateTimer -= dt;
