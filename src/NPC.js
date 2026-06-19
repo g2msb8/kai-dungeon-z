@@ -1,4 +1,5 @@
-// ホーム画面の環境NPC。自律的に歩き回り、各施設を訪れる。
+// ホーム画面の環境NPC。自律的に動き回り、セリフを喋りながら
+// 各施設を訪れたり、回転・ジャンプなどのリアクションをする。
 import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { COLORS } from './core/Constants.js';
@@ -13,8 +14,10 @@ const DEST = {
 
 // 外見はプレイヤーと完全に同じ（ユーザー要件）
 
-const MOVE_SPEED = 3.2;   // m/s
-const ROOM_RADIUS = 16;   // 部屋の壁まで
+const MOVE_SPEED  = 3.2;   // m/s
+const JUMP_T      = 0.42;  // 1回のジャンプにかかる時間(秒)
+const JUMP_H      = 0.7;   // ジャンプの高さ(m)
+const SPIN_SPEED  = Math.PI * 2 * 2; // 回転速度(rad/s) ≒ 2回転/秒
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
@@ -33,17 +36,27 @@ export class NPC {
     h.root.scale.setScalar(1.25);
     h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
-    this._h       = h;
-    this.root     = h.root;
-    this._scene   = scene;
-    this._moving  = false;
-    this._facing  = Math.random() * Math.PI * 2;
-    this._target  = null;
+    this._h        = h;
+    this.root      = h.root;
+    this._scene    = scene;
+    this._moving   = false;
+    this._facing   = Math.random() * Math.PI * 2;
+    this._target   = null;
     this._onArrive = null;
+    this._afterWait = null;
+    this._afterJump = null;
 
-    // ステートマシン: idle / moving / waiting / gone
+    // ステートマシン: idle / moving / waiting / gone / spinning / jumping / sitting
     this._state      = 'idle';
     this._stateTimer = 0;
+    this._spinRemaining = 0;
+    this._jumpsRemaining = 0;
+    this._jumpT = 0;
+    this._appearCenter = false;
+
+    // セリフ吹き出し
+    this._speechSprite = null;
+    this._speechTimer  = null;
 
     // 初期位置はセンター付近にランダム配置
     const ang = (index / 10) * Math.PI * 2 + rand(-0.3, 0.3);
@@ -55,64 +68,79 @@ export class NPC {
     this._pickBehavior();
   }
 
-  // ── 行動選択 ──────────────────────────────────────────────────
+  // ── 行動選択（セリフ＋対応アクションをランダムに）────────────────
   _pickBehavior() {
-    const b = randInt(1, 7);
+    const b = randInt(1, 8);
 
     if (b === 1) {
-      // 2秒その場で待つ
-      this._wait(2);
+      // やっほー！ → その場で3回転
+      this._say('やっほー！', 2600);
+      this._spin(3);
 
     } else if (b === 2) {
-      // 滝修行に行く → ランダム秒待つ
-      const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(rand(1, 20)));
+      // ショップ見に行こうよ！ → ショップに行って5秒立ち止まる
+      this._say('ショップ見に行こうよ！', 4000);
+      const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._wait(5));
 
     } else if (b === 3) {
-      // 鍛冶屋の前で3秒待つ
-      const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(3));
-
-    } else if (b === 4) {
-      // ショップに行く → ランダム秒待つ
-      const dest = DEST.shop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
-      this._moveTo(dest, () => this._wait(rand(1, 20)));
-
-    } else if (b === 5) {
-      // バトル入り口に行って消える → 10秒〜2分後に戻る
+      // バトルに行こう、イェーイ！ → 戦闘機の真ん中で一瞬消え、
+      // 10〜20秒後にホーム画面の真ん中にいきなり出てくる
+      this._say('バトルに行こう、イェーイ！', 4000);
       const dest = DEST.battle.clone().add(new THREE.Vector3(rand(-1.0, 1.0), 0, rand(-1.0, 1.0)));
       this._moveTo(dest, () => {
+        this._clearSpeech();
         this._vanish();
+        this._appearCenter = true;
         this._state      = 'gone';
-        this._stateTimer = rand(10, 120);
+        this._stateTimer = rand(10, 20);
       });
+
+    } else if (b === 4) {
+      // トイレ → 1分立ち止まり、終わったら「トイレ終わった」と喋って元に戻る
+      this._say('ちょっとトイレ行ってくるから、ちょっとだけ立ち止まってるね。', 5000);
+      this._wait(60, () => {
+        this._say('トイレ終わった', 3000);
+        this._wait(2.5);
+      });
+
+    } else if (b === 5) {
+      // ちょっとだけ修行 → 滝に行ってあぐらを組み10秒
+      this._say('ちょっとだけ修行してくるわ。', 4000);
+      const dest = DEST.training.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._enterSit(10));
 
     } else if (b === 6) {
-      // ランダムな方向に1〜10秒走り回る（複数目標を連続で移動）
-      this._wander(rand(1, 10));
+      // 刀鍛冶に依頼 → 鍛冶屋に行って7秒立ち止まる
+      this._say('ちょっと刀鍛冶に依頼してくるわ。', 4000);
+      const dest = DEST.blacksmith.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
+      this._moveTo(dest, () => this._wait(7));
+
+    } else if (b === 7) {
+      // 賛成 → 普通のジャンプを5回
+      this._say('賛成', 2600);
+      this._jump(5);
 
     } else {
-      // 行動7: 近くへ歩いて消える → 1〜20秒後に戻る
-      const angle = Math.random() * Math.PI * 2;
-      const dist  = 2 + Math.random() * 4;
-      const dest  = new THREE.Vector3(
-        this.root.position.x + Math.sin(angle) * dist,
-        0,
-        this.root.position.z + Math.cos(angle) * dist,
-      );
-      _clampToRoom(dest);
-      this._moveTo(dest, () => {
-        this._vanish();
-        this._state      = 'gone';
-        this._stateTimer = rand(1, 20);
-      });
+      // 確かに。 → 2秒立ち止まってから普通のジャンプを2回
+      this._say('確かに。', 2600);
+      this._wait(2, () => this._jump(2));
     }
   }
 
   // ── 状態変更ヘルパー ──────────────────────────────────────────
-  _wait(sec) {
+  _goIdle() {
+    // 次のセリフまで少し間をあける（全員同時に喋らないように）
+    this._state      = 'waiting';
+    this._stateTimer = rand(1.5, 5);
+    this._afterWait  = () => this._pickBehavior();
+    this._moving     = false;
+  }
+
+  _wait(sec, after = null) {
     this._state      = 'waiting';
     this._stateTimer = sec;
+    this._afterWait  = after;
     this._moving     = false;
   }
 
@@ -122,22 +150,37 @@ export class NPC {
     this._state    = 'moving';
   }
 
-  _wander(totalTime) {
-    if (totalTime <= 0) { this._pickBehavior(); return; }
-    const angle = Math.random() * Math.PI * 2;
-    const dist  = 2 + Math.random() * 5;
-    const dest  = new THREE.Vector3(
-      this.root.position.x + Math.sin(angle) * dist,
-      0,
-      this.root.position.z + Math.cos(angle) * dist,
-    );
-    _clampToRoom(dest);
+  _spin(times) {
+    this._spinRemaining = times * Math.PI * 2;
+    this._state = 'spinning';
+  }
 
-    this._moveTo(dest, () => {
-      const travelTime = (this._lastTravelTime ?? 0);
-      this._wander(totalTime - travelTime);
-    });
-    this._wanderStart = performance.now() / 1000;
+  _jump(times, after = null) {
+    this._jumpsRemaining = times;
+    this._jumpT     = 0;
+    this._afterJump = after;
+    this._state     = 'jumping';
+  }
+
+  _enterSit(sec) {
+    const p = this._h.parts;
+    p.legL.rotation.set(Math.PI * 0.38, 0,  0.72);
+    p.legR.rotation.set(Math.PI * 0.38, 0, -0.72);
+    p.armL.rotation.set(0.42, 0,  0.18);
+    p.armR.rotation.set(0.42, 0, -0.18);
+    this.root.position.y = -0.58;
+    this._state      = 'sitting';
+    this._stateTimer = sec;
+    this._moving     = false;
+  }
+
+  _exitSit() {
+    const p = this._h.parts;
+    p.legL.rotation.set(0, 0, 0);
+    p.legR.rotation.set(0, 0, 0);
+    p.armL.rotation.set(0, 0, 0);
+    p.armR.rotation.set(0, 0, 0);
+    this.root.position.y = 0;
   }
 
   _vanish() {
@@ -145,65 +188,154 @@ export class NPC {
   }
 
   _appear() {
-    // センター付近のランダム位置に再出現
     const ang = Math.random() * Math.PI * 2;
-    const r   = 0.5 + Math.random() * 3.5;
+    const r   = this._appearCenter ? Math.random() * 0.8 : 0.5 + Math.random() * 3.5;
+    this._appearCenter = false;
     this.root.position.set(Math.sin(ang) * r, 0, Math.cos(ang) * r);
     this.root.visible = true;
   }
 
   // ── 毎フレーム更新 ────────────────────────────────────────────
   update(dt) {
-    if (this._state === 'gone') {
-      this._stateTimer -= dt;
-      if (this._stateTimer <= 0) {
-        this._appear();
-        this._state = 'idle';
-      }
-      return;
-    }
+    switch (this._state) {
+      case 'gone':
+        this._stateTimer -= dt;
+        if (this._stateTimer <= 0) { this._appear(); this._goIdle(); }
+        return;
 
-    if (this._state === 'moving' && this._target) {
-      const dx   = this._target.x - this.root.position.x;
-      const dz   = this._target.z - this.root.position.z;
-      const dist = Math.hypot(dx, dz);
+      case 'moving':
+        if (this._target) {
+          const dx = this._target.x - this.root.position.x;
+          const dz = this._target.z - this.root.position.z;
+          const dist = Math.hypot(dx, dz);
+          if (dist < 0.25) {
+            this._target = null;
+            this._moving = false;
+            const cb = this._onArrive; this._onArrive = null;
+            if (cb) cb(); else this._goIdle();
+          } else {
+            const nx = dx / dist, nz = dz / dist;
+            this.root.position.x += nx * MOVE_SPEED * dt;
+            this.root.position.z += nz * MOVE_SPEED * dt;
+            this._facing = _lerpAngle(this._facing, Math.atan2(-nx, -nz), Math.min(1, 10 * dt));
+            this.root.rotation.y = this._facing;
+            this._moving = true;
+          }
+        }
+        break;
 
-      if (dist < 0.25) {
-        // 到着
-        this._lastTravelTime = 0;
-        this._target  = null;
-        this._moving  = false;
-        this._state   = 'idle';
-        const cb = this._onArrive;
-        this._onArrive = null;
-        if (cb) cb();
-      } else {
-        const nx = dx / dist, nz = dz / dist;
-        this.root.position.x += nx * MOVE_SPEED * dt;
-        this.root.position.z += nz * MOVE_SPEED * dt;
-        this._facing = _lerpAngle(this._facing, Math.atan2(-nx, -nz), Math.min(1, 10 * dt));
+      case 'waiting':
+        this._stateTimer -= dt;
+        this._moving = false;
+        if (this._stateTimer <= 0) {
+          const after = this._afterWait; this._afterWait = null;
+          if (after) after(); else this._goIdle();
+        }
+        break;
+
+      case 'spinning': {
+        const d = SPIN_SPEED * dt;
+        this._facing += d;
+        this._spinRemaining -= d;
         this.root.rotation.y = this._facing;
-        this._moving = true;
-        this._lastTravelTime = (this._lastTravelTime ?? 0) + dt;
+        this._moving = false;
+        if (this._spinRemaining <= 0) this._goIdle();
+        break;
       }
 
-    } else if (this._state === 'waiting') {
-      this._stateTimer -= dt;
-      this._moving = false;
-      if (this._stateTimer <= 0) {
-        this._state = 'idle';
+      case 'jumping': {
+        this._moving = false;
+        this._jumpT += dt;
+        if (this._jumpT >= JUMP_T) {
+          this._jumpT -= JUMP_T;
+          this._jumpsRemaining -= 1;
+          if (this._jumpsRemaining <= 0) {
+            this.root.position.y = 0;
+            const after = this._afterJump; this._afterJump = null;
+            if (after) after(); else this._goIdle();
+            break;
+          }
+        }
+        this.root.position.y = Math.sin(Math.PI * (this._jumpT / JUMP_T)) * JUMP_H;
+        break;
       }
 
-    } else if (this._state === 'idle') {
-      this._moving = false;
-      this._pickBehavior();
+      case 'sitting':
+        this._stateTimer -= dt;
+        this._moving = false;
+        if (this._stateTimer <= 0) { this._exitSit(); this._goIdle(); }
+        // 座りポーズ保持のため歩行アニメは更新しない
+        return;
+
+      case 'idle':
+      default:
+        this._goIdle();
+        break;
     }
 
-    // 歩行アニメ
-    this._h.update(dt, { moving: this._moving });
+    // 歩行アニメ（sitting はポーズ保持のため更新しない）
+    if (this._state !== 'sitting') this._h.update(dt, { moving: this._moving });
+  }
+
+  // ── セリフ吹き出し ────────────────────────────────────────────
+  _say(text, holdMs = 3500) {
+    this._clearSpeech();
+
+    const lines = _wrapJa(text, 9);
+    const pad = 22, fs = 44, lh = 58;
+    const fontStr = `bold ${fs}px -apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif`;
+
+    const canvas = document.createElement('canvas');
+    let ctx = canvas.getContext('2d');
+    ctx.font = fontStr;
+    let maxW = 0;
+    for (const ln of lines) maxW = Math.max(maxW, ctx.measureText(ln).width);
+
+    const W = Math.ceil(maxW + pad * 2);
+    const H = Math.ceil(lines.length * lh + pad * 2);
+    canvas.width = W; canvas.height = H;
+
+    ctx = canvas.getContext('2d');
+    ctx.font = fontStr;
+    // 吹き出し背景
+    ctx.fillStyle   = 'rgba(255,255,255,0.96)';
+    _roundRect(ctx, 2, 2, W - 4, H - 4, 18); ctx.fill();
+    ctx.lineWidth   = 3;
+    ctx.strokeStyle = 'rgba(40,40,55,0.55)';
+    _roundRect(ctx, 2, 2, W - 4, H - 4, 18); ctx.stroke();
+    // テキスト
+    ctx.fillStyle    = '#1a1a22';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, pad + lh * (i + 0.5)));
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+    const spr = new THREE.Sprite(mat);
+    spr.renderOrder = 999;
+
+    const k = 0.0055; // canvas px → ローカル単位
+    spr.scale.set(W * k, H * k, 1);
+    spr.position.set(0, 2.05 + (H * k) * 0.5, 0);
+
+    this.root.add(spr);
+    this._speechSprite = spr;
+    this._speechTimer  = setTimeout(() => this._clearSpeech(), holdMs);
+  }
+
+  _clearSpeech() {
+    if (this._speechTimer) { clearTimeout(this._speechTimer); this._speechTimer = null; }
+    if (this._speechSprite) {
+      this.root.remove(this._speechSprite);
+      if (this._speechSprite.material.map) this._speechSprite.material.map.dispose();
+      this._speechSprite.material.dispose();
+      this._speechSprite = null;
+    }
   }
 
   dispose() {
+    this._clearSpeech();
     this._scene.remove(this.root);
     this.root.traverse(o => {
       if (o.geometry) o.geometry.dispose();
@@ -215,14 +347,33 @@ export class NPC {
   }
 }
 
-function _clampToRoom(v) {
-  const r = Math.hypot(v.x, v.z);
-  if (r > ROOM_RADIUS) { v.x *= ROOM_RADIUS / r; v.z *= ROOM_RADIUS / r; }
-}
-
 function _lerpAngle(a, b, t) {
   let d = b - a;
   while (d >  Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
+}
+
+// 日本語をおおよそ n 文字 / 句読点で折り返す
+function _wrapJa(text, n) {
+  const lines = [];
+  let cur = '';
+  for (const ch of text) {
+    cur += ch;
+    if (cur.length >= n || ch === '、' || ch === '。' || ch === '！' || ch === '？') {
+      lines.push(cur); cur = '';
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [text];
+}
+
+function _roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
 }
