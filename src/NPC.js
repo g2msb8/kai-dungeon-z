@@ -2,7 +2,6 @@
 // 各施設を訪れたり、回転・ジャンプなどのリアクションをする。
 import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
-import { COLORS } from './core/Constants.js';
 
 // 各施設のワールド座標（HomeScene の建物位置と一致させる）
 const DEST = {
@@ -20,27 +19,52 @@ const JUMP_T      = 0.42;  // 1回のジャンプにかかる時間(秒)
 const JUMP_H      = 0.7;   // ジャンプの高さ(m)
 const SPIN_SPEED  = Math.PI * 2 * 2; // 回転速度(rad/s) ≒ 2回転/秒
 
-// 行動6「スキンを変えて再出現」用のランダム外見パレット
-const SKIN_TONES = [0xe8c49a, 0xd4a87a, 0xb88a60, 0x8d5524, 0xf0d0b0, 0xc68642];
-const CLOTHES    = [0x111111, 0x1565c0, 0xc62828, 0x2e7d32, 0x6a1b9a, 0xff8f00, 0x00838f, 0xeeeeee, 0x455a64];
-const PANTS_COL  = [0x3355bb, 0x333333, 0x5d4037, 0x37474f, 0x6d4c41, 0x283593];
-const HAIRS      = [0x2a180a, 0x5c3d1e, 0x111111, 0xc0a020, 0x884400, 0x999999, 0xaa3333];
+// ランダム外見パレット（髪型・服・ズボン・靴の組み合わせでスキンを決める）
+const SKIN_TONES   = [0xe8c49a, 0xd4a87a, 0xb88a60, 0x8d5524, 0xf0d0b0, 0xc68642];
+const CLOTHES      = [0x111111, 0x1565c0, 0xc62828, 0x2e7d32, 0x6a1b9a, 0xff8f00, 0x00838f, 0xeeeeee, 0x455a64, 0xfdd835];
+const PANTS_COL    = [0x3355bb, 0x333333, 0x5d4037, 0x37474f, 0x6d4c41, 0x283593, 0x795548];
+const HAIRS        = [0x2a180a, 0x5c3d1e, 0x111111, 0xc0a020, 0x884400, 0x999999, 0xaa3333];
+const HAIR_STYLES  = ['short', 'spiky', 'mohawk', 'bald', 'long', 'bowl'];
+const SHOE_TYPES   = ['normal', 'nike', 'boots'];
+const SHOE_COLORS  = [0xffffff, 0x111111, 0xd32f2f, 0x1565c0, 0x2e7d32, 0xfbc02d, 0x6d4c41, 0xff7043];
+const SHOE_ACCENTS = [0xffffff, 0x111111, 0xff1744, 0x00e676, 0x2979ff];
 
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+// ランダムなスキン（外見）を1つ生成
+export function randomNpcStyle() {
+  const pants = pick(PANTS_COL);
+  return {
+    skin:        pick(SKIN_TONES),
+    cloth:       pick(CLOTHES),
+    pants,
+    pantsAccent: _darken(pants, 0.6),
+    hairColor:   pick(HAIRS),
+    hairStyle:   pick(HAIR_STYLES),
+    sleeve:      Math.random() < 0.5 ? 'short' : 'long',
+    legwear:     Math.random() < 0.5 ? 'shorts' : 'pants',
+    shoes: {
+      type:   pick(SHOE_TYPES),
+      color:  pick(SHOE_COLORS),
+      accent: pick(SHOE_ACCENTS),
+    },
+  };
+}
+
+// 同一スキン判定用の署名（全員別スキンにするための重複チェックに使う）
+export function npcStyleKey(s) {
+  return [
+    s.hairStyle, s.hairColor, s.cloth, s.sleeve,
+    s.legwear, s.pants, s.skin, s.shoes.type, s.shoes.color,
+  ].join('|');
+}
+
 export class NPC {
-  constructor(scene, index) {
-    const h = buildHumanoid({
-      skin:        COLORS.PLAYER_SKIN,
-      cloth:       COLORS.PLAYER_CLOTH,
-      pants:       COLORS.PLAYER_PANTS,
-      pantsAccent: COLORS.PLAYER_PANTS_DARK,
-      skinDark:    COLORS.PLAYER_SKIN,
-      face:        'player',
-      hairColor:   COLORS.PLAYER_HAIR,
-    });
+  constructor(scene, index, style = null) {
+    this._style = style ?? randomNpcStyle();
+    const h = _buildFromStyle(this._style);
     h.root.scale.setScalar(1.25);
     h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
 
@@ -303,15 +327,8 @@ export class NPC {
     });
 
     // 新しいランダム外見で作り直す
-    const pantsCol = pick(PANTS_COL);
-    const h = buildHumanoid({
-      skin:        pick(SKIN_TONES),
-      cloth:       pick(CLOTHES),
-      pants:       pantsCol,
-      pantsAccent: _darken(pantsCol, 0.6),
-      face:        'player',
-      hairColor:   pick(HAIRS),
-    });
+    this._style = randomNpcStyle();
+    const h = _buildFromStyle(this._style);
     h.root.scale.setScalar(1.25);
     h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     h.root.position.copy(pos);
@@ -512,6 +529,23 @@ function _lerpAngle(a, b, t) {
 function _clampToRoom(v) {
   const r = Math.hypot(v.x, v.z);
   if (r > ROOM_RADIUS) { v.x *= ROOM_RADIUS / r; v.z *= ROOM_RADIUS / r; }
+}
+
+// スタイルから人型モデルを生成
+function _buildFromStyle(style) {
+  return buildHumanoid({
+    skin:        style.skin,
+    cloth:       style.cloth,
+    pants:       style.pants,
+    pantsAccent: style.pantsAccent,
+    skinDark:    style.skin,
+    face:        'player',
+    hairColor:   style.hairColor,
+    hairStyle:   style.hairStyle,
+    sleeve:      style.sleeve,
+    legwear:     style.legwear,
+    shoes:       style.shoes,
+  });
 }
 
 // 0xRRGGBB を f 倍（0〜1）に暗くする

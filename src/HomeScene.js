@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { COLORS } from './core/Constants.js';
-import { NPC } from './NPC.js';
+import { NPC, randomNpcStyle, npcStyleKey } from './NPC.js';
 
 export class HomeScene {
   constructor(canvas) {
@@ -367,9 +367,15 @@ export class HomeScene {
   }
 
   _buildNPCs() {
-    const count = 1 + Math.floor(Math.random() * 10); // 1〜10体
+    const count = 7 + Math.floor(Math.random() * 14); // 7〜20体
+    // 全員が別々のスキンになるよう重複を避けて生成
+    const used = new Set();
     for (let i = 0; i < count; i++) {
-      this._npcs.push(new NPC(this.scene, i));
+      let style, key, tries = 0;
+      do { style = randomNpcStyle(); key = npcStyleKey(style); tries++; }
+      while (used.has(key) && tries < 60);
+      used.add(key);
+      this._npcs.push(new NPC(this.scene, i, style));
     }
   }
 

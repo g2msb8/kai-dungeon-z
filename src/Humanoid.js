@@ -1,8 +1,16 @@
-// ローポリ人型モデル共通ビルダー（主人公用）。
+// ローポリ人型モデル共通ビルダー（主人公／NPC用）。
 // opts.face = 'player' を渡すと外国人男性の顔を追加する。
+// 追加のスタイル指定（省略時はプレイヤーの既定外見）:
+//   hairStyle: 'short'|'spiky'|'mohawk'|'bald'|'long'|'bowl'
+//   sleeve:    'short'|'long'        （長袖なら腕が服色＋手のひら）
+//   legwear:   'pants'|'shorts'      （半ズボンなら脛が肌色）
+//   shoes:     null | { type:'normal'|'nike'|'boots', color, accent }
 import * as THREE from 'three';
 
-export function buildHumanoid({ skin, cloth, pants, skinDark, face, hairColor, pantsAccent }) {
+export function buildHumanoid({
+  skin, cloth, pants, skinDark, face, hairColor, pantsAccent,
+  hairStyle = 'short', sleeve = 'short', legwear = 'pants', shoes = null,
+}) {
   const root = new THREE.Group();
 
   const skinMat     = mat(skin);
@@ -26,17 +34,26 @@ export function buildHumanoid({ skin, cloth, pants, skinDark, face, hairColor, p
   root.add(headGroup);
 
   if (face === 'player') {
-    _addPlayerFace(headGroup, skin, hairColor);
+    _addPlayerFace(headGroup, skin);
+    _addHair(headGroup, hairColor, hairStyle);
   }
 
   // ── 腕（肩ピボット） ──
+  const sleeveLong = sleeve === 'long';
   function makeArm(side) {
     const pivot = new THREE.Group();
     pivot.position.set(side * 0.42, 1.50, 0);
-    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.62, 0.19), skinDkMat);
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.165, 0.62, 0.19), sleeveLong ? clothMat : skinDkMat);
     upper.position.y = -0.31;
     upper.castShadow = true;
     pivot.add(upper);
+    if (sleeveLong) {
+      // 袖から出る手（肌色）
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.16, 0.20), skinMat);
+      hand.position.y = -0.66;
+      hand.castShadow = true;
+      pivot.add(hand);
+    }
     root.add(pivot);
     return pivot;
   }
@@ -44,24 +61,39 @@ export function buildHumanoid({ skin, cloth, pants, skinDark, face, hairColor, p
   const armR = makeArm(1);
 
   // ── 脚（ヒップピボット） ──
+  const shortsOn = legwear === 'shorts';
   function makeLeg(side) {
     const pivot = new THREE.Group();
     pivot.position.set(side * 0.16, 0.78, 0);
 
-    // メインのズボン
-    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.205, 0.80, 0.23), pantsMat);
-    leg.position.y = -0.40;
-    leg.castShadow = true;
-    pivot.add(leg);
-
-    // 破れデニムのアクセント（ランダムな暗い縦筋）
-    if (pantsAccent) {
-      const tearH = 0.10 + Math.random() * 0.14;
-      const tearY = -0.25 - Math.random() * 0.25;
-      const tear = new THREE.Mesh(new THREE.BoxGeometry(0.08, tearH, 0.22), pantsAccMat);
-      tear.position.set(side * 0.03, tearY, 0);
-      pivot.add(tear);
+    if (shortsOn) {
+      // 半ズボン（上）＋ 素足の脛（下）
+      const shorts = new THREE.Mesh(new THREE.BoxGeometry(0.215, 0.42, 0.24), pantsMat);
+      shorts.position.y = -0.21;
+      shorts.castShadow = true;
+      pivot.add(shorts);
+      const shin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.42, 0.20), skinDkMat);
+      shin.position.y = -0.60;
+      shin.castShadow = true;
+      pivot.add(shin);
+    } else {
+      // 長ズボン
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.205, 0.80, 0.23), pantsMat);
+      leg.position.y = -0.40;
+      leg.castShadow = true;
+      pivot.add(leg);
+      // 破れデニムのアクセント（ランダムな暗い縦筋）
+      if (pantsAccent) {
+        const tearH = 0.10 + Math.random() * 0.14;
+        const tearY = -0.25 - Math.random() * 0.25;
+        const tear = new THREE.Mesh(new THREE.BoxGeometry(0.08, tearH, 0.22), pantsAccMat);
+        tear.position.set(side * 0.03, tearY, 0);
+        pivot.add(tear);
+      }
     }
+
+    // 靴
+    if (shoes) _addShoe(pivot, side, shoes);
 
     root.add(pivot);
     return pivot;
@@ -100,9 +132,96 @@ export function buildHumanoid({ skin, cloth, pants, skinDark, face, hairColor, p
   return { root, parts, update };
 }
 
-// ─── 外国人男性の顔 ─────────────────────────────────────────────────
+// ─── 靴 ─────────────────────────────────────────────────────────────
+function _addShoe(pivot, side, shoes) {
+  const colMat = mat(shoes.color, 0.7);
+
+  if (shoes.type === 'boots') {
+    // 長靴: 脛まで覆う筒 + 足
+    const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.46, 0.26), colMat);
+    shaft.position.set(0, -0.60, 0);
+    shaft.castShadow = true;
+    pivot.add(shaft);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.14, 0.36), colMat);
+    foot.position.set(0, -0.85, -0.05);
+    foot.castShadow = true;
+    pivot.add(foot);
+    return;
+  }
+
+  // normal / nike 共通: 黒いソール + 本体
+  const sole = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.07, 0.38), mat(0x1a1a1a, 0.6));
+  sole.position.set(0, -0.87, -0.05);
+  pivot.add(sole);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.13, 0.32), colMat);
+  body.position.set(0, -0.80, -0.03);
+  body.castShadow = true;
+  pivot.add(body);
+
+  if (shoes.type === 'nike') {
+    // 横のスウッシュ（アクセント色）
+    const accMat = mat(shoes.accent ?? 0xffffff, 0.5);
+    const sw = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 0.16), accMat);
+    sw.position.set(side * 0.13, -0.80, -0.02);
+    pivot.add(sw);
+  }
+}
+
+// ─── 髪型 ───────────────────────────────────────────────────────────
+function _addHair(headGroup, hairColor, style) {
+  const hair = mat(hairColor ?? 0x2a180a, 0.9);
+  const fz = -0.175;
+  const B = (w, h, d, x, y, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), hair);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    headGroup.add(mesh);
+    return mesh;
+  };
+
+  switch (style) {
+    case 'bald': // 丸刈り
+      B(0.35, 0.05, 0.35, 0, 0.205, 0);
+      break;
+
+    case 'spiky': // ツンツン
+      B(0.36, 0.08, 0.36, 0, 0.215, 0);
+      for (const sx of [-0.10, 0, 0.10])
+        for (const sz of [-0.10, 0, 0.10])
+          B(0.05, 0.13, 0.05, sx, 0.30, sz);
+      break;
+
+    case 'mohawk': // モヒカン
+      B(0.36, 0.05, 0.36, 0, 0.205, 0);
+      B(0.08, 0.18, 0.34, 0, 0.30, 0);
+      break;
+
+    case 'long': // ロング
+      B(0.36, 0.11, 0.36, 0, 0.225, 0);
+      B(0.09, 0.34, 0.32, -0.17, 0.02, 0.02);
+      B(0.09, 0.34, 0.32,  0.17, 0.02, 0.02);
+      B(0.34, 0.30, 0.08,  0,    0.02, 0.175);
+      B(0.30, 0.055, 0.08, 0,    0.155, fz + 0.04);
+      break;
+
+    case 'bowl': // おかっぱ
+      B(0.38, 0.16, 0.38, 0, 0.18, 0);
+      B(0.36, 0.07, 0.10, 0, 0.10, fz + 0.02);
+      break;
+
+    case 'short': // ショート（既定・主人公）
+    default:
+      B(0.36, 0.11, 0.36, 0, 0.225, 0);
+      B(0.07, 0.20, 0.30, -0.17, 0.12, 0);
+      B(0.07, 0.20, 0.30,  0.17, 0.12, 0);
+      B(0.30, 0.055, 0.08, 0, 0.155, fz + 0.04);
+      break;
+  }
+}
+
+// ─── 外国人男性の顔（髪は _addHair で別途追加）─────────────────────────
 // 頭ボックス: 0.34 × 0.36 × 0.34。正面 = -z（fz = -0.17）。
-function _addPlayerFace(headGroup, skinColor, hairColor) {
+function _addPlayerFace(headGroup, skinColor) {
   const fz = -0.175; // 正面 z 位置
 
   function m(color, r = 0.88) {
@@ -118,17 +237,7 @@ function _addPlayerFace(headGroup, skinColor, hairColor) {
     return mesh;
   }
 
-  const hair = m(hairColor ?? 0x2a180a);
-  const lipM  = m(0xb25c5c);
-  const jawM  = m(0x806050, 1.0);  // ヒゲ/顎影
-
-  // ── 髪 ──────────────────────────────────────────────────────
-  // 頭頂部 + サイド
-  add(box(0.36, 0.11, 0.36, hair),  0,     0.225,  0);
-  add(box(0.07, 0.20, 0.30, hair), -0.17,  0.12,   0);  // 左サイド
-  add(box(0.07, 0.20, 0.30, hair),  0.17,  0.12,   0);  // 右サイド
-  // 前髪（おでこにかかる）
-  add(box(0.30, 0.055, 0.08, hair), 0,    0.155,  fz + 0.04);
+  const jawM = m(0x806050, 1.0);  // ヒゲ/顎影
 
   // ── 眉毛 ────────────────────────────────────────────────────
   const browM = m(0x301808);
