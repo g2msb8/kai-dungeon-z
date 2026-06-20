@@ -652,6 +652,45 @@ function _showPotionGet() {
   updatePotionBtn();
 }
 
+// ─── NPC再入場通知（ホーム左上・青い四角＋黒枠）─────────────
+let _enterNoticeWrap = null;
+function showEnterNotice(name) {
+  if (!_enterNoticeWrap) {
+    _enterNoticeWrap = document.createElement('div');
+    Object.assign(_enterNoticeWrap.style, {
+      position: 'fixed',
+      top:  'calc(64px + env(safe-area-inset-top))',
+      left: 'calc(12px + env(safe-area-inset-left))',
+      zIndex: '46', pointerEvents: 'none',
+      display: 'flex', flexDirection: 'column', gap: '8px',
+    });
+    document.body.appendChild(_enterNoticeWrap);
+  }
+
+  const el = document.createElement('div');
+  Object.assign(el.style, {
+    background: '#1976d2', color: '#fff',
+    border: '3px solid #000', borderRadius: '6px',
+    padding: '8px 14px', maxWidth: '72vw',
+    fontSize: '14px', textAlign: 'center', lineHeight: '1.3',
+    boxShadow: '0 3px 10px rgba(0,0,0,0.45)',
+    opacity: '0', transform: 'translateX(-14px)',
+    transition: 'opacity 0.25s ease, transform 0.25s ease',
+  });
+  const nameEl = document.createElement('span');
+  nameEl.textContent = name;                         // 真ん中に特殊ネーム
+  nameEl.style.fontWeight = 'bold';
+  nameEl.style.fontSize = '16px';
+  el.appendChild(nameEl);
+  el.appendChild(document.createTextNode('さんが入ってきました'));
+
+  _enterNoticeWrap.appendChild(el);
+  requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateX(0)'; });
+  setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateX(-14px)'; }, 3600);
+  setTimeout(() => el.remove(), 3950);
+}
+homeScene.onSpecialEnter = showEnterNotice;
+
 // ─── ボス出現警告 ──────────────────────────────────────────
 function _showBossWarning() {
   const el = document.createElement('div');

@@ -81,8 +81,9 @@ export function npcStyleKey(s) {
 }
 
 export class NPC {
-  constructor(scene, index, style = null) {
+  constructor(scene, index, style = null, onEnter = null) {
     this._style = style ?? randomNpcStyle();
+    this._onEnter = onEnter; // 行動6の再入場時に左上通知を出すコールバック
     const h = _buildFromStyle(this._style);
     h.root.scale.setScalar(1.25);
     h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -217,13 +218,8 @@ export class NPC {
         break;
       }
       case 'walkSwap': {
-        const a = Math.random() * Math.PI * 2;
-        const dist = 4 + Math.random() * 6;
-        const d = new THREE.Vector3(
-          this.root.position.x + Math.sin(a) * dist, 0,
-          this.root.position.z + Math.cos(a) * dist,
-        );
-        _clampToRoom(d);
+        // ホームの真ん中へ戻って消える → 10〜30秒後に特殊ネームを変えて再入場
+        const d = new THREE.Vector3(rand(-0.8, 0.8), 0, rand(-0.8, 0.8));
         this._moveTo(d, () => {
           this._clearSpeech(); this._vanish();
           this._swapPending = true;
@@ -390,7 +386,7 @@ export class NPC {
     this.root = h.root;
     this._facing = rotY;
     this._scene.add(this.root);
-    this._buildNameLabel(); // 名前ラベルを新しいモデルに付け直す（名前は維持）
+    this._buildNameLabel(); // 名前ラベルを新しいモデルに付け直す（this._name を使用）
   }
 
   // ── 毎フレーム更新 ────────────────────────────────────────────
@@ -400,7 +396,12 @@ export class NPC {
       case 'gone':
         this._stateTimer -= dt;
         if (this._stateTimer <= 0) {
-          if (this._swapPending) { this._swapSkin(); this._swapPending = false; }
+          if (this._swapPending) {
+            this._swapPending = false;
+            this._name = pick(NAMES);   // 新しい特殊ネームをランダムに決定
+            this._swapSkin();           // スキン作り直し（中で名前ラベルも新名で再生成）
+            if (this._onEnter) this._onEnter(this._name); // 左上に「入ってきました」通知
+          }
           this._appear();
           this._goIdle();
         }

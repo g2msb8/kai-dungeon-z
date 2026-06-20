@@ -40,6 +40,7 @@ export class HomeScene {
     this._isSitting    = false;
     this._elapsed      = 0;
     this._npcs         = [];
+    this.onSpecialEnter = null;  // NPCが行動6で再入場したとき (name) => {} で通知
 
     this._build();
     this._onResize();
@@ -375,7 +376,10 @@ export class HomeScene {
       do { style = randomNpcStyle(); key = npcStyleKey(style); tries++; }
       while (used.has(key) && tries < 60);
       used.add(key);
-      this._npcs.push(new NPC(this.scene, i, style));
+      const npc = new NPC(this.scene, i, style, (name) => {
+        if (this.onSpecialEnter) this.onSpecialEnter(name);
+      });
+      this._npcs.push(npc);
     }
   }
 
