@@ -24,7 +24,10 @@ const SKIN_TONES   = [0xe8c49a, 0xd4a87a, 0xb88a60, 0x8d5524, 0xf0d0b0, 0xc68642
 const CLOTHES      = [0x111111, 0x1565c0, 0xc62828, 0x2e7d32, 0x6a1b9a, 0xff8f00, 0x00838f, 0xeeeeee, 0x455a64, 0xfdd835];
 const PANTS_COL    = [0x3355bb, 0x333333, 0x5d4037, 0x37474f, 0x6d4c41, 0x283593, 0x795548];
 const HAIRS        = [0x2a180a, 0x5c3d1e, 0x111111, 0xc0a020, 0x884400, 0x999999, 0xaa3333];
-const HAIR_STYLES  = ['short', 'spiky', 'mohawk', 'bald', 'long', 'bowl'];
+const HAIR_STYLES  = [
+  'naturalShort', 'asymmetry', 'airy', 'wavy', 'wolf', 'softMohawk',
+  'mash', 'twoBlockBuzz', 'design', 'semiLong', 'wolf', 'short', 'veryShort', 'long',
+];
 const SHOE_TYPES   = ['normal', 'nike', 'boots'];
 const SHOE_COLORS  = [0xffffff, 0x111111, 0xd32f2f, 0x1565c0, 0x2e7d32, 0xfbc02d, 0x6d4c41, 0xff7043];
 const SHOE_ACCENTS = [0xffffff, 0x111111, 0xff1744, 0x00e676, 0x2979ff];
