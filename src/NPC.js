@@ -29,6 +29,25 @@ const SHOE_TYPES   = ['normal', 'nike', 'boots'];
 const SHOE_COLORS  = [0xffffff, 0x111111, 0xd32f2f, 0x1565c0, 0x2e7d32, 0xfbc02d, 0x6d4c41, 0xff7043];
 const SHOE_ACCENTS = [0xffffff, 0x111111, 0xff1744, 0x00e676, 0x2979ff];
 
+// 頭上に表示する名前（ランダム）
+const NAMES = [
+  'ドラゴニック',
+  'ハイパーライトニングスピン',
+  'ガルディロックスゴールデン',
+  'ダイヤモンドスパイダー',
+  'ウルトラレジェンド',
+  'バトルマン',
+  'トルネード127.1.65',
+  'マグマブルースパイラル',
+  'レジェンドプロゲーマー',
+  'モンスターハンター22号',
+  'ビッグマックス',
+  'クロックハンズ',
+  'ウルトラスピード',
+  'ファイヤースネーク',
+  'デビルブラック',
+];
+
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -95,6 +114,10 @@ export class NPC {
     this._speechSprite = null;
     this._speechTimer  = null;
 
+    // 頭上の名前（ランダム）
+    this._name        = pick(NAMES);
+    this._nameSprite  = null;
+
     // 初期位置はセンター付近にランダム配置
     const ang = (index / 10) * Math.PI * 2 + rand(-0.3, 0.3);
     const r   = 1.5 + Math.random() * 3.0;
@@ -102,6 +125,7 @@ export class NPC {
     this.root.rotation.y = this._facing;
 
     scene.add(this.root);
+    this._buildNameLabel();
     this._pickBehavior();
   }
 
@@ -366,6 +390,7 @@ export class NPC {
     this.root = h.root;
     this._facing = rotY;
     this._scene.add(this.root);
+    this._buildNameLabel(); // 名前ラベルを新しいモデルに付け直す（名前は維持）
   }
 
   // ── 毎フレーム更新 ────────────────────────────────────────────
@@ -518,11 +543,55 @@ export class NPC {
 
     const k = 0.0055; // canvas px → ローカル単位
     spr.scale.set(W * k, H * k, 1);
-    spr.position.set(0, 2.05 + (H * k) * 0.5, 0);
+    // 名前ラベルの上に出す
+    spr.position.set(0, 2.55 + (H * k) * 0.5, 0);
 
     this.root.add(spr);
     this._speechSprite = spr;
     this._speechTimer  = setTimeout(() => this._clearSpeech(), holdMs);
+  }
+
+  // ── 頭上の名前ラベル（黒文字・常時表示）──────────────────────────
+  _buildNameLabel() {
+    if (this._nameSprite) {
+      this.root.remove(this._nameSprite);
+      if (this._nameSprite.material.map) this._nameSprite.material.map.dispose();
+      this._nameSprite.material.dispose();
+      this._nameSprite = null;
+    }
+
+    const fs = 40, pad = 14;
+    const fontStr = `bold ${fs}px -apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif`;
+    const canvas = document.createElement('canvas');
+    let ctx = canvas.getContext('2d');
+    ctx.font = fontStr;
+    const W = Math.ceil(ctx.measureText(this._name).width + pad * 2);
+    const H = fs + pad * 2;
+    canvas.width = W; canvas.height = H;
+
+    ctx = canvas.getContext('2d');
+    ctx.font = fontStr;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // 視認性のため白い縁取り → 黒文字
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
+    ctx.strokeText(this._name, W / 2, H / 2);
+    ctx.fillStyle = '#000000';
+    ctx.fillText(this._name, W / 2, H / 2);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.minFilter = THREE.LinearFilter;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+    const spr = new THREE.Sprite(mat);
+    spr.renderOrder = 998;
+
+    const k = 0.0050;
+    spr.scale.set(W * k, H * k, 1);
+    spr.position.set(0, 2.18, 0); // 頭のすぐ上
+    this.root.add(spr);
+    this._nameSprite = spr;
   }
 
   _clearSpeech() {
@@ -537,6 +606,7 @@ export class NPC {
 
   dispose() {
     this._clearSpeech();
+    if (this._nameSprite && this._nameSprite.material.map) this._nameSprite.material.map.dispose();
     this._scene.remove(this.root);
     this.root.traverse(o => {
       if (o.geometry) o.geometry.dispose();
