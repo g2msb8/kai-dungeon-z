@@ -11,6 +11,7 @@ import * as THREE from 'three';
 export function buildHumanoid({
   skin, cloth, pants, skinDark, face, hairColor, pantsAccent,
   hairStyle = 'short', sleeve = 'short', legwear = 'pants', shoes = null,
+  clothPattern = null, gloves = null, pantsPattern = null,
 }) {
   const root = new THREE.Group();
 
@@ -25,6 +26,17 @@ export function buildHumanoid({
   torso.position.y = 1.15;
   torso.castShadow = true;
   root.add(torso);
+
+  // 2色混ざったTシャツ（横ストライプ）
+  if (clothPattern != null) {
+    const patMat = mat(clothPattern);
+    for (const sy of [0.97, 1.17, 1.37]) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.10, 0.32), patMat);
+      stripe.position.set(0, sy, 0);
+      stripe.castShadow = true;
+      root.add(stripe);
+    }
+  }
 
   // ── 頭（Group にして顔パーツを子にできるように）──
   const headGroup = new THREE.Group();
@@ -41,6 +53,7 @@ export function buildHumanoid({
 
   // ── 腕（肩ピボット） ──
   const sleeveLong = sleeve === 'long';
+  const gloveMat = gloves != null ? mat(gloves) : null;
   function makeArm(side) {
     const pivot = new THREE.Group();
     pivot.position.set(side * 0.42, 1.50, 0);
@@ -48,9 +61,9 @@ export function buildHumanoid({
     upper.position.y = -0.31;
     upper.castShadow = true;
     pivot.add(upper);
-    if (sleeveLong) {
-      // 袖から出る手（肌色）
-      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.16, 0.20), skinMat);
+    // 手（長袖なら袖から出る／手袋があれば手袋色）
+    if (sleeveLong || gloveMat) {
+      const hand = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.16, 0.20), gloveMat ?? skinMat);
       hand.position.y = -0.66;
       hand.castShadow = true;
       pivot.add(hand);
@@ -73,6 +86,15 @@ export function buildHumanoid({
       shorts.position.y = -0.21;
       shorts.castShadow = true;
       pivot.add(shorts);
+      // 2色混ざった模様（縦ストライプ）
+      if (pantsPattern != null) {
+        const patMat = mat(pantsPattern);
+        for (const sx of [-0.06, 0.06]) {
+          const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.42, 0.252), patMat);
+          stripe.position.set(sx, -0.21, 0);
+          pivot.add(stripe);
+        }
+      }
       const shin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.42, 0.20), skinDkMat);
       shin.position.y = -0.60;
       shin.castShadow = true;

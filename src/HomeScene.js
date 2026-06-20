@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { COLORS } from './core/Constants.js';
 import { NPC, randomNpcStyle, npcStyleKey } from './NPC.js';
+import { getPlayerOutfit } from './PlayerSkin.js';
 
 export class HomeScene {
   constructor(canvas) {
@@ -31,10 +32,16 @@ export class HomeScene {
     this.nearBattle      = false;
     this.nearTraining    = false;
     this.nearBlacksmith  = false;
+    this.nearMyPage      = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
     this._blacksmithPos  = null;
+    this._mypagePos      = null;
+    this._mpDoorPivot    = null;
+    this._mpDoorAngle    = 0;
+    this._playerName     = null;
+    this._playerNameSprite = null;
     this._waterfallTex = null;
     this._splashParts  = [];
     this._isSitting    = false;
@@ -59,6 +66,7 @@ export class HomeScene {
     this._buildJet();
     this._buildTrainingSpot();
     this._buildBlacksmith();
+    this._buildMyPageHouse();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -384,15 +392,7 @@ export class HomeScene {
   }
 
   _buildPlayer() {
-    const h = buildHumanoid({
-      skin:        COLORS.PLAYER_SKIN,
-      cloth:       COLORS.PLAYER_CLOTH,
-      pants:       COLORS.PLAYER_PANTS,
-      pantsAccent: COLORS.PLAYER_PANTS_DARK,
-      skinDark:    COLORS.PLAYER_SKIN,
-      face:        'player',
-      hairColor:   COLORS.PLAYER_HAIR,
-    });
+    const h = buildHumanoid(getPlayerOutfit());
     h.root.position.set(0, 0, 0.5);
     h.root.rotation.y = Math.PI * 0.08;
     h.root.scale.setScalar(1.25);
@@ -488,6 +488,14 @@ export class HomeScene {
     this.nearBattle     = this._jetPos        ? p.distanceTo(this._jetPos)        < 5.5 : false;
     this.nearTraining   = this._trainingPos   ? p.distanceTo(this._trainingPos)   < 5.5 : false;
     this.nearBlacksmith = this._blacksmithPos ? p.distanceTo(this._blacksmithPos) < 5.5 : false;
+    this.nearMyPage     = this._mypagePos     ? p.distanceTo(this._mypagePos)     < 5.5 : false;
+
+    // マイページの家のドア開閉（近づくと勝手に開く）
+    if (this._mpDoorPivot) {
+      const targetAngle = this.nearMyPage ? -1.95 : 0;
+      this._mpDoorAngle += (targetAngle - this._mpDoorAngle) * Math.min(1, dt * 5);
+      this._mpDoorPivot.rotation.y = this._mpDoorAngle;
+    }
 
     const desired = new THREE.Vector3(p.x, p.y + 4.5, p.z + 7.5);
     this.camera.position.lerp(desired, Math.min(1, dt * 6));
@@ -994,6 +1002,147 @@ export class HomeScene {
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.scene.add(g);
   }
+
+  // ─── マイページの家（黒壁・白屋根・黒線・茶色い木のドア）──────────
+  _buildMyPageHouse() {
+    const POS = new THREE.Vector3(-9, 0, -9);
+    this._mypagePos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.PI / 4; // 前面（ドア）を中央へ向ける
+
+    const wallM   = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.9 });   // 黒い壁
+    const roofM   = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });   // 白い屋根
+    const woodM   = new THREE.MeshStandardMaterial({ color: 0x7a4a22, roughness: 0.8 });   // 茶色い木のドア
+    const woodDkM = new THREE.MeshStandardMaterial({ color: 0x55321a, roughness: 0.85 });
+    const frameM  = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1 });     // 黒い枠線
+    const paneM   = new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf66, emissiveIntensity: 0.7, roughness: 0.6 });
+    const knobM   = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.6, roughness: 0.3 });
+    const lineM   = new THREE.LineBasicMaterial({ color: 0x000000 });
+
+    const addEdges = (mesh) => {
+      const e = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), lineM);
+      e.position.copy(mesh.position);
+      e.rotation.copy(mesh.rotation);
+      g.add(e);
+    };
+
+    const W = 4.2, H = 3.0, D = 3.4, rise = 1.3, half = D / 2;
+    const phi = Math.atan2(rise, half);
+    const slope = Math.hypot(half, rise) + 0.25;
+
+    // 壁（黒）＋黒い輪郭線
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), wallM);
+    wall.position.set(0, H / 2, 0);
+    g.add(wall); addEdges(wall);
+
+    // 屋根（白い切妻）＋黒い線
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.16, slope), roofM);
+    roofL.position.set(0, H + rise / 2, half / 2); roofL.rotation.x = phi;
+    g.add(roofL); addEdges(roofL);
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.16, slope), roofM);
+    roofR.position.set(0, H + rise / 2, -half / 2); roofR.rotation.x = -phi;
+    g.add(roofR); addEdges(roofR);
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(W + 0.6, 0.2, 0.2), roofM);
+    ridge.position.set(0, H + rise, 0);
+    g.add(ridge); addEdges(ridge);
+
+    // 茶色い木のドア（ヒンジ付き・近づくと開く）
+    const doorPivot = new THREE.Group();
+    doorPivot.position.set(-0.55, 0, half + 0.02);
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.1, 0.12), woodM);
+    door.position.set(0.55, 1.05, 0);
+    doorPivot.add(door);
+    for (const px of [0.3, 0.55, 0.8]) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.9, 0.14), woodDkM);
+      plank.position.set(px, 1.05, 0);
+      doorPivot.add(plank);
+    }
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), knobM);
+    knob.position.set(0.98, 1.05, 0.09);
+    doorPivot.add(knob);
+    doorPivot.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.add(doorPivot);
+    this._mpDoorPivot = doorPivot;
+
+    // 黒いドア枠
+    const ftop = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.16, 0.18), frameM);
+    ftop.position.set(0, 2.22, half); g.add(ftop);
+    for (const sx of [-0.72, 0.72]) {
+      const fside = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.3, 0.18), frameM);
+      fside.position.set(sx, 1.1, half); g.add(fside);
+    }
+
+    // 窓（暖色＋黒い十字枠）
+    for (const wx of [-1.45, 1.45]) {
+      const pane = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.08), paneM);
+      pane.position.set(wx, 1.75, half + 0.02); g.add(pane);
+      const vbar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.9, 0.12), frameM);
+      vbar.position.set(wx, 1.75, half + 0.04); g.add(vbar);
+      const hbar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.08, 0.12), frameM);
+      hbar.position.set(wx, 1.75, half + 0.04); g.add(hbar);
+    }
+
+    // 看板「マイページ」
+    const mpSign = this._makeTextSprite('マイページ');
+    mpSign.scale.set(3.2, 1.05, 1);
+    mpSign.position.set(0, 3.5, half + 0.3);
+    g.add(mpSign);
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
+  // ─── 自分（主人公）の頭上の名前ラベル（赤文字＋黒フチ）──────────
+  setPlayerName(name) {
+    this._playerName = (name && name.trim()) ? name.trim() : null;
+    this._buildPlayerNameLabel();
+  }
+
+  _buildPlayerNameLabel() {
+    if (this._playerNameSprite) {
+      if (this._playerNameSprite.parent) this._playerNameSprite.parent.remove(this._playerNameSprite);
+      if (this._playerNameSprite.material.map) this._playerNameSprite.material.map.dispose();
+      this._playerNameSprite.material.dispose();
+      this._playerNameSprite = null;
+    }
+    if (!this._playerName || !this._humanoid) return;
+    const spr = _makeNameSprite(this._playerName, '#e53935', '#000000'); // 赤文字＋黒フチ
+    this._humanoid.root.add(spr);
+    this._playerNameSprite = spr;
+  }
+}
+
+// 頭上の名前スプライト（fill=文字色 / stroke=フチ色）
+function _makeNameSprite(text, fillColor, strokeColor) {
+  const fs = 40, pad = 14;
+  const fontStr = `bold ${fs}px -apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif`;
+  const canvas = document.createElement('canvas');
+  let ctx = canvas.getContext('2d');
+  ctx.font = fontStr;
+  const W = Math.ceil(ctx.measureText(text).width + pad * 2);
+  const H = fs + pad * 2;
+  canvas.width = W; canvas.height = H;
+  ctx = canvas.getContext('2d');
+  ctx.font = fontStr;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = strokeColor;
+  ctx.strokeText(text, W / 2, H / 2);
+  ctx.fillStyle = fillColor;
+  ctx.fillText(text, W / 2, H / 2);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.minFilter = THREE.LinearFilter;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
+  const spr = new THREE.Sprite(mat);
+  spr.renderOrder = 998;
+  const k = 0.0050;
+  spr.scale.set(W * k, H * k, 1);
+  spr.position.set(0, 2.2, 0);
+  return spr;
 }
 
 function _lerpAngle(a, b, t) {

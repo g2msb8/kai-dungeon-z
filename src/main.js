@@ -235,6 +235,8 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_potions');
   localStorage.removeItem('dz_training_level');
   localStorage.removeItem('dz_enhance');
+  localStorage.removeItem('dz_player_name');
+  homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
   forgeActive = false;
@@ -300,6 +302,7 @@ const battleEnterBtn = document.getElementById('btn-home-battle-enter');
 const trainEnterBtn  = document.getElementById('btn-home-train-enter');
 const trainStopBtn   = document.getElementById('btn-home-train-stop');
 const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
+const mypageEnterBtn = document.getElementById('btn-home-mypage-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -310,6 +313,72 @@ shopEnterBtn.addEventListener('click', () => { showShopMenu(); });
 battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
 trainEnterBtn.addEventListener('click', () => { startTraining(); });
 trainStopBtn.addEventListener('click',  () => { stopTraining(); });
+
+// ─── マイページ（自分の名前変更）──────────────────────────────
+const PLAYER_NAME_KEY = 'dz_player_name';
+function getPlayerName() { return localStorage.getItem(PLAYER_NAME_KEY) || ''; }
+function setPlayerNameLS(n) { localStorage.setItem(PLAYER_NAME_KEY, n); }
+
+const mypageOverlay   = document.getElementById('mypage-overlay');
+const mypageNameBtn   = document.getElementById('mypage-name-btn');
+const mypageExitBtn   = document.getElementById('btn-mypage-exit');
+const mypageCurName   = document.getElementById('mypage-current-name');
+let   mypageNameTimer = null;
+let   inMyPage        = false;
+
+function _spawnMypageLamps() {
+  // 既存ランプを消して周囲にランダム配置
+  mypageOverlay.querySelectorAll('.mypage-lamp').forEach(el => el.remove());
+  const spots = [
+    [8, 55], [16, 74], [26, 88], [50, 92], [74, 88], [84, 74], [92, 55],
+    [12, 40], [88, 40], [22, 64], [78, 64], [50, 70],
+  ];
+  for (const [x, y] of spots) {
+    const lamp = document.createElement('div');
+    lamp.className = 'mypage-lamp';
+    lamp.style.left = `${x}%`;
+    lamp.style.top  = `${y}%`;
+    lamp.style.animationDelay = `${(x * 0.013).toFixed(2)}s`;
+    mypageOverlay.appendChild(lamp);
+  }
+}
+
+function _refreshMypageName() {
+  const n = getPlayerName();
+  mypageCurName.textContent = n ? `いまの名前: ${n}` : '名前はまだ未設定です';
+}
+
+function enterMyPage() {
+  inMyPage = true;
+  _spawnMypageLamps();
+  _refreshMypageName();
+  mypageNameBtn.classList.remove('show'); // 3秒後に出す
+  mypageOverlay.classList.remove('hidden');
+  // 近接ボタンは隠す
+  mypageEnterBtn.classList.add('hidden');
+  if (mypageNameTimer) clearTimeout(mypageNameTimer);
+  mypageNameTimer = setTimeout(() => { mypageNameBtn.classList.add('show'); }, 3000);
+}
+
+function exitMyPage() {
+  inMyPage = false;
+  if (mypageNameTimer) { clearTimeout(mypageNameTimer); mypageNameTimer = null; }
+  mypageNameBtn.classList.remove('show');
+  mypageOverlay.classList.add('hidden');
+}
+
+mypageEnterBtn.addEventListener('click', () => { enterMyPage(); });
+mypageExitBtn.addEventListener('click', () => { exitMyPage(); });
+mypageNameBtn.addEventListener('click', () => {
+  const cur = getPlayerName();
+  const input = window.prompt('あたらしい名前を入力してください（16文字まで）', cur);
+  if (input === null) return;               // キャンセル
+  const name = input.trim().slice(0, 16);
+  if (!name) return;
+  setPlayerNameLS(name);
+  homeScene.setPlayerName(name);            // 頭上ラベル（赤＋黒）を更新
+  _refreshMypageName();
+});
 
 function startBattleFlow() {
   homeScene.stop();
@@ -886,6 +955,7 @@ function showHome() {
   screens.hideAll();
   updateCoinDisplay();
   updatePotionBtn();
+  homeScene.setPlayerName(getPlayerName()); // 頭上の名前を反映
   homeScene.start();
 }
 
@@ -945,6 +1015,9 @@ function loop(now) {
 
     // 鍛冶屋ボタン: 近くにいて強化中でなければ表示
     forgeEnterBtn.classList.toggle('hidden', !homeScene.nearBlacksmith);
+
+    // マイページボタン: 家に近づくと表示（室内にいる間は隠す）
+    mypageEnterBtn.classList.toggle('hidden', !(homeScene.nearMyPage && !inMyPage));
 
     // 修行タイマー更新
     if (trainingActive) {
@@ -1029,5 +1102,6 @@ if (window.visualViewport) {
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();
+homeScene.setPlayerName(getPlayerName()); // 保存済みの名前を頭上に反映
 homeScene.start();
 rafId = requestAnimationFrame(loop);

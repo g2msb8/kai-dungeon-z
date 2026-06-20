@@ -3,19 +3,12 @@ import * as THREE from 'three';
 import { buildHumanoid } from './Humanoid.js';
 import { Sword } from './Sword.js';
 import { PLAYER, COLORS, SPECIAL } from './core/Constants.js';
+import { getPlayerOutfit } from './PlayerSkin.js';
 import { soundManager } from './SoundManager.js';
 
 export class Player {
   constructor() {
-    const h = buildHumanoid({
-      skin:        COLORS.PLAYER_SKIN,
-      cloth:       COLORS.PLAYER_CLOTH,
-      pants:       COLORS.PLAYER_PANTS,
-      pantsAccent: COLORS.PLAYER_PANTS_DARK,
-      skinDark:    COLORS.PLAYER_SKIN,
-      face:        'player',
-      hairColor:   COLORS.PLAYER_HAIR,
-    });
+    const h = buildHumanoid(getPlayerOutfit());
     this.humanoid = h;
     this.root  = h.root;
     this.armR  = h.parts.armR;
@@ -265,15 +258,7 @@ function lerpAngle(a, b, t) {
 // ─── 分身クラス ───────────────────────────────────────────────
 export class Clone {
   constructor(scene, position, weaponType = 'copper', trainingBonus = 0) {
-    const h = buildHumanoid({
-      skin:        COLORS.PLAYER_SKIN,
-      cloth:       COLORS.PLAYER_CLOTH,
-      pants:       COLORS.PLAYER_PANTS,
-      pantsAccent: COLORS.PLAYER_PANTS_DARK,
-      skinDark:    COLORS.PLAYER_SKIN,
-      face:        'player',
-      hairColor:   COLORS.PLAYER_HAIR,
-    });
+    const h = buildHumanoid(getPlayerOutfit());
     this.root = h.root;
     this.root.position.copy(position);
     // 青い発光で分身と分かるようにする
