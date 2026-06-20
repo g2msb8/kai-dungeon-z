@@ -799,7 +799,9 @@ function getBestWeapon() {
 // ─── バトルUI（攻撃ボタン・HUD）を表示 ───────────────────────
 function showBattleUI() {
   document.getElementById('attack-btn').style.display = '';
-  document.getElementById('hud').style.display = '';
+  // #hud は CSS で display:none。明示的に block にしないと
+  // HPゲージ・古びた石・鉄の鉱石・残りゾンビが表示されない。
+  document.getElementById('hud').style.display = 'block';
 }
 
 // 武器・修行ボーナス・強化ボーナスをまとめて適用
