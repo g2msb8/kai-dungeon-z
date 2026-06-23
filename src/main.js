@@ -15,6 +15,8 @@ import { Stage4Opening }  from './ui/Stage4Opening.js';
 import { Stage5Opening }  from './ui/Stage5Opening.js';
 import { Stage6Opening }  from './ui/Stage6Opening.js';
 import { Stage7Opening }  from './ui/Stage7Opening.js';
+import { GenericOpening } from './ui/GenericOpening.js';
+import { BossChallenge } from './ui/BossChallenge.js';
 
 const STATE = {
   HOME:           'home',
@@ -62,6 +64,11 @@ const screens = new Screens({
     else if (currentStage === 4) startStage5Opening();
     else if (currentStage === 5) startStage6Opening();
     else if (currentStage === 6) startStage7Opening();
+    else if (currentStage === 7) startStage8Opening();
+    else if (currentStage === 8) startStage9Opening();
+    else if (currentStage === 9) startStage10Opening();
+    else if (currentStage === 10) startStage11Opening();
+    else if (currentStage === 11) startStage12Opening();
   },
 });
 
@@ -303,6 +310,7 @@ const trainEnterBtn  = document.getElementById('btn-home-train-enter');
 const trainStopBtn   = document.getElementById('btn-home-train-stop');
 const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
 const mypageEnterBtn = document.getElementById('btn-home-mypage-enter');
+const endlessEnterBtn = document.getElementById('btn-home-endless-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -313,6 +321,7 @@ shopEnterBtn.addEventListener('click', () => { showShopMenu(); });
 battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
 trainEnterBtn.addEventListener('click', () => { startTraining(); });
 trainStopBtn.addEventListener('click',  () => { stopTraining(); });
+endlessEnterBtn.addEventListener('click', () => { startEndlessMode(); });
 
 // ─── マイページ（自分の名前変更）──────────────────────────────
 const PLAYER_NAME_KEY = 'dz_player_name';
@@ -386,6 +395,64 @@ function startBattleFlow() {
   opChoiceEl.classList.remove('hidden');
   state = STATE.OPENING_CHOICE;
   updateCoinDisplay();
+}
+
+// ─── エンドレスモード ──────────────────────────────────────────
+let isEndless = false;
+const endlessCounterEl = document.getElementById('endless-counter');
+const ENDLESS_BEST_KEY = 'dz_endless_best';
+
+game.zombies.onEndlessKill = (n) => {
+  if (endlessCounterEl) endlessCounterEl.textContent = `撃破 ${n}`;
+};
+
+function startEndlessMode() {
+  homeScene.stop();
+  homeEl.classList.add('hidden');
+  showBattleUI();
+  applyWeaponBonuses();
+  isEndless = true;
+  game.startEndless();
+  hud.reset();
+  hud.setZombies(game.zombies.aliveCount);
+  screens.hideAll();
+  if (endlessCounterEl) {
+    endlessCounterEl.textContent = '撃破 0';
+    endlessCounterEl.classList.remove('hidden');
+  }
+  state = STATE.PLAYING;
+  updatePotionBtn();
+}
+
+function _showEndlessOver(count) {
+  const best    = parseInt(localStorage.getItem(ENDLESS_BEST_KEY) || '0', 10);
+  const newBest = count > best;
+  if (newBest) localStorage.setItem(ENDLESS_BEST_KEY, String(count));
+  const bestShown = Math.max(best, count);
+
+  const el = document.createElement('div');
+  el.className = 'screen';
+  el.style.zIndex = '60';
+  el.innerHTML =
+    `<h1 style="color:#ff5a5a;">ゲームオーバー</h1>` +
+    (newBest ? `<div class="endless-best">★ 最高記録 ★</div>` : '') +
+    `<div class="big">あなたの記録は ${count}回目です</div>` +
+    `<div class="result">最高記録：${bestShown}回</div>` +
+    `<div class="clear-btns">` +
+    `<button class="btn btn-orange" id="endless-retry">もう一度</button>` +
+    `<button class="btn btn-teal" id="endless-home">ホームに戻る</button>` +
+    `</div>`;
+  document.body.appendChild(el);
+
+  el.querySelector('#endless-retry').addEventListener('click', () => {
+    el.remove();
+    startEndlessMode();
+  });
+  el.querySelector('#endless-home').addEventListener('click', () => {
+    el.remove();
+    isEndless = false;
+    showHome();
+  });
 }
 
 // ─── 修行システム ─────────────────────────────────────────
@@ -591,10 +658,11 @@ game.zombies.onKill = ({ drops, remaining }) => {
 game.zombies.onCleared = () => {
   if (state !== STATE.PLAYING) return;
   state = STATE.CLEAR;
-  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 250, 6: 300, 7: 350 };
+  const coinMap = { 1: 50, 2: 100, 3: 150, 4: 200, 5: 250, 6: 300, 7: 350,
+                    8: 400, 9: 450, 10: 500, 11: 600, 12: 800 };
   addCoins(coinMap[currentStage] ?? 50);
-  // ステージ進行: 1→2→3→4→5→6→7→全クリ
-  const nextMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7 };
+  // ステージ進行: 1→…→7→8(海)→9(宇宙)→10(毒の森)→11(太陽)→12(真っ白い世界)→全クリ
+  const nextMap = { 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 12 };
   const next = nextMap[currentStage];
   if (next) {
     localStorage.setItem('dz_next_stage', String(next));
@@ -822,6 +890,11 @@ function retryCurrentStage() {
   else if (currentStage === 5) game.startStage5();
   else if (currentStage === 6) game.startStage6();
   else if (currentStage === 7) game.startStage7();
+  else if (currentStage === 8) game.startStage8();
+  else if (currentStage === 9) game.startStage9();
+  else if (currentStage === 10) game.startStage10();
+  else if (currentStage === 11) game.startStage11();
+  else if (currentStage === 12) game.startStage12();
   else                         game.startStage();
   hud.reset();
   hud.setZombies(game.zombies.aliveCount);
@@ -948,10 +1021,71 @@ function startStage7Opening() {
   op.start();
 }
 
+// ─── ステージ8〜12（追加ステージ）─────────────────────────────
+function _beginStage(stageNum, startFn) {
+  showBattleUI();
+  currentStage = stageNum;
+  applyWeaponBonuses();
+  startFn();
+  hud.reset();
+  hud.setZombies(game.zombies.aliveCount);
+  state = STATE.PLAYING;
+  updatePotionBtn();
+}
+
+function startStage8Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  new GenericOpening('海ステージ',
+    'radial-gradient(ellipse at 50% 40%, #3aa0e0 0%, #14689f 100%)', '#ffffff',
+    () => _beginStage(8, () => game.startStage8()),
+    ['「今までのボスが集まってきた…！」', '各ボスが2体ずつ襲いかかる！']).start();
+}
+
+function startStage9Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  new GenericOpening('宇宙ステージ',
+    'radial-gradient(ellipse at 50% 40%, #1a1740 0%, #05030f 100%)', '#aab4ff',
+    () => _beginStage(9, () => game.startStage9()),
+    ['「無数の弓矢ゾンビが浮かんでいる…」', '弓矢ゾンビ20体！']).start();
+}
+
+function startStage10Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  new GenericOpening('毒の森ステージ',
+    'radial-gradient(ellipse at 50% 40%, #4a1f6e 0%, #1d142b 100%)', '#cc88ff',
+    () => _beginStage(10, () => game.startStage10()),
+    ['「毒の沼から無数のゾンビが…」', '各ゾンビ4体＋でかい紫の象！']).start();
+}
+
+function startStage11Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  new GenericOpening('太陽の中ステージ',
+    'radial-gradient(ellipse at 50% 40%, #ffcf66 0%, #ff6a00 100%)', '#3a1a00',
+    () => _beginStage(11, () => game.startStage11()),
+    ['「自分とそっくりな者が現れた…！」', '同じ攻撃力・同じ強さ。ただし特殊技は使わない']).start();
+}
+
+// 真っ白い世界は「ボス」選択画面 → 勝負に挑む で開始
+function startStage12Opening() {
+  screens.hideAll();
+  homeEl.classList.add('hidden');
+  const challenge = new BossChallenge(
+    () => _beginStage(12, () => game.startStage12()),
+    () => showHome(),
+  );
+  challenge.start();
+}
+
 // ─── ホーム画面へ（オープニング後・ゲームクリア後） ─────────
 function showHome() {
   currentStage = 1;
   state = STATE.HOME;
+  isEndless = false;
+  if (endlessCounterEl) endlessCounterEl.classList.add('hidden');
   homeEl.classList.remove('hidden');
   hideShop();
   screens.hideAll();
@@ -1021,6 +1155,9 @@ function loop(now) {
     // マイページボタン: 家に近づくと表示（室内にいる間は隠す）
     mypageEnterBtn.classList.toggle('hidden', !(homeScene.nearMyPage && !inMyPage));
 
+    // エンドレス火山ボタン
+    endlessEnterBtn.classList.toggle('hidden', !homeScene.nearEndless);
+
     // 修行タイマー更新
     if (trainingActive) {
       trainingTimer -= dt;
@@ -1061,7 +1198,12 @@ function loop(now) {
     if (!game.player.alive) {
       state = STATE.OVER;
       updatePotionBtn();
-      screens.showOver(game.zombies.drops);
+      if (isEndless) {
+        endlessCounterEl.classList.add('hidden');
+        _showEndlessOver(game.zombies.endlessCount);
+      } else {
+        screens.showOver(game.zombies.drops);
+      }
     }
     game.render();
   } else {
@@ -1083,6 +1225,11 @@ window.__dz = {
   startStage5Opening,
   startStage6Opening,
   startStage7Opening,
+  startStage8Opening,
+  startStage9Opening,
+  startStage10Opening,
+  startStage11Opening,
+  startStage12Opening,
   pauseLoop()  { if (rafId) { cancelAnimationFrame(rafId); rafId = null; } },
   resumeLoop() { if (!rafId) { last = performance.now(); rafId = requestAnimationFrame(loop); } },
 };

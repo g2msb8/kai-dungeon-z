@@ -291,6 +291,35 @@
       background: linear-gradient(180deg, #424242, #111111);
       box-shadow: 0 4px 0 #000000, 0 6px 18px rgba(0,0,0,0.4);
     }
+    #btn-home-endless-enter {
+      background: linear-gradient(180deg, #ff7043, #b71c1c);
+      box-shadow: 0 4px 0 #7f0000, 0 6px 18px rgba(0,0,0,0.4);
+    }
+
+    /* ===== エンドレス 撃破カウンター ===== */
+    #endless-counter {
+      position: fixed; top: calc(54px + env(safe-area-inset-top)); left: 50%;
+      transform: translateX(-50%);
+      z-index: 12; pointer-events: none;
+      background: rgba(0,0,0,0.55); border: 2px solid rgba(255,120,80,0.7);
+      border-radius: 12px; padding: 6px 18px;
+      font-size: 20px; font-weight: bold; color: #ffd0a0; letter-spacing: 1px;
+      text-shadow: 0 0 10px rgba(255,90,0,0.7), 0 2px 4px #000;
+      white-space: nowrap;
+    }
+    #endless-counter.hidden { display: none; }
+
+    /* エンドレス最高記録エフェクト */
+    .endless-best {
+      font-size: 26px; font-weight: bold; letter-spacing: 3px;
+      color: #fff176; margin-bottom: 10px;
+      text-shadow: 0 0 18px #ffd740, 0 0 36px #ff9100, 0 2px 6px #000;
+      animation: endlessBestAnim 1.2s ease-in-out infinite;
+    }
+    @keyframes endlessBestAnim {
+      0%, 100% { transform: scale(1);    filter: brightness(1); }
+      50%      { transform: scale(1.12); filter: brightness(1.4); }
+    }
 
     /* ===== マイページ 室内オーバーレイ ===== */
     #mypage-overlay {
@@ -935,6 +964,7 @@
   <div id="attack-btn">攻撃</div>
   <button id="hyperjump-btn" class="hidden">⬆</button>
   <button id="potion-btn" class="hidden">使う</button>
+  <div id="endless-counter" class="hidden">撃破 0</div>
 
   <!-- 特殊技発動（バトル中・右上） -->
   <button id="special-btn" class="hidden">特殊技発動</button>
@@ -961,6 +991,7 @@
       <button id="btn-home-train-enter"  class="home-action-btn hidden">🧘 修行をする</button>
       <button id="btn-home-forge-enter"  class="home-action-btn hidden">🔨 武器を強化する</button>
       <button id="btn-home-mypage-enter" class="home-action-btn hidden">🏠 マイページに入る</button>
+      <button id="btn-home-endless-enter" class="home-action-btn hidden">🌋 エンドレス</button>
     </div>
     <!-- 修行中UI -->
     <div id="home-train-ui">

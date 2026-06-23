@@ -223,6 +223,62 @@ export const ARCHER_ZOMBIE = {
   HIT_RADIUS: 0.7,
 };
 
+// でかい紫色の象（紫の瞳ゾンビの1.5倍強い）
+export const PURPLE_ELEPHANT = {
+  MAX_HP: 15,            // 紫ゾンビ(10)の1.5倍。1ダメージ制限あり＝15発必要
+  MOVE_SPEED: 2.0,
+  RADIUS: 1.2,
+  ATTACK_DAMAGE: 37,     // 紫ゾンビ(25)の約1.5倍
+  ATTACK_RANGE: 2.6,
+  ATTACK_COOLDOWN: 1.5,
+  HIT_STUN: 0.2,
+  SCALE: 1.8,
+};
+
+// 太陽の中ステージ：自分と同じスキン・攻撃力のエンティティ
+export const SUN_ENTITY = {
+  MAX_HP: 100,           // 自分と同じ強さ
+  MOVE_SPEED: 4.2,
+  RADIUS: 0.5,
+  ATTACK_RANGE: 2.4,
+  ATTACK_COOLDOWN: 1.0,
+  HIT_STUN: 0.18,
+};
+
+// 追加ステージ 8〜12
+export const STAGE8 = {
+  NAME: '海ステージ',
+  RADIUS: 38,
+  BOSS_EACH: 2,          // イノシシ/紫瞳/紫象 を各2体
+  DROP: { STONE: 0.4, ORE: 0.6 },
+};
+export const STAGE9 = {
+  NAME: '宇宙ステージ',
+  ARCHER_COUNT: 20,
+  RADIUS: 40,
+  DROP: { STONE: 0.4, ORE: 0.6 },
+};
+export const STAGE10 = {
+  NAME: '毒の森ステージ',
+  EACH: 4,               // 各ゾンビ4体ずつ
+  ELEPHANT_COUNT: 1,
+  RADIUS: 40,
+  DROP: { STONE: 0.4, ORE: 0.6 },
+};
+export const STAGE11 = {
+  NAME: '太陽の中ステージ',
+  ENTITY_COUNT: 2,
+  RADIUS: 36,
+  DROP: { STONE: 0.4, ORE: 0.6 },
+};
+export const STAGE12 = {
+  NAME: '真っ白い世界',
+  WAVE1_EACH: 1,         // イノシシ/紫瞳/紫象 を各1体
+  WAVE2_ELEPHANTS: 3,    // 最後に紫象3体
+  RADIUS: 38,
+  DROP: { STONE: 0.3, ORE: 0.7 },
+};
+
 export const COLORS = {
   GROUND: 0x2f4a25,
   FOG: 0x33502f,

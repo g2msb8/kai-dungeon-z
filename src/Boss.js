@@ -222,6 +222,9 @@ export class Boss {
 
   die() { this.dying = true; this._deathT = 0; }
 
+  // 透明化時にその場で回転（zombies配列で扱うため）
+  updateSpin(dt) { this.root.rotation.y += dt * 3; }
+
   dispose(scene) {
     scene.remove(this.root);
     this.root.traverse(o => {

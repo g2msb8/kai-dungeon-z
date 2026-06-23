@@ -7,6 +7,11 @@ import { buildDesertBiome } from './DesertBiome.js';
 import { buildIceBiome } from './IceBiome.js';
 import { buildDemonBiome } from './DemonBiome.js';
 import { buildHeavenBiome } from './HeavenBiome.js';
+import { buildSeaBiome } from './SeaBiome.js';
+import { buildSpaceBiome } from './SpaceBiome.js';
+import { buildPoisonForestBiome } from './PoisonForestBiome.js';
+import { buildSunBiome } from './SunBiome.js';
+import { buildWhiteWorldBiome } from './WhiteWorldBiome.js';
 import { Player } from './Player.js';
 import { ZombieManager } from './ZombieManager.js';
 import { COLORS, PLAYER } from './core/Constants.js';
@@ -193,6 +198,88 @@ export class Game {
 
     this.player.reset();
     this.zombies.setupStage7();
+    this._updateCamera(1, true);
+  }
+
+  startStage8() {
+    this._clearStageGroup();
+    const { group, bounds } = buildSeaBiome(this.scene);
+    this._stageGroup = group; this.bounds = bounds;
+    this._ambient.color.set(0x6090c0);
+    this.sun.color.set(0xcfe8ff);
+    this.player.reset();
+    this.zombies.setupStage8();
+    this._updateCamera(1, true);
+  }
+
+  startStage9() {
+    this._clearStageGroup();
+    const { group, bounds } = buildSpaceBiome(this.scene);
+    this._stageGroup = group; this.bounds = bounds;
+    this._ambient.color.set(0x404070);
+    this.sun.color.set(0x8090d0);
+    this.player.reset();
+    this.zombies.setupStage9();
+    this._updateCamera(1, true);
+  }
+
+  startStage10() {
+    this._clearStageGroup();
+    const { group, bounds } = buildPoisonForestBiome(this.scene);
+    this._stageGroup = group; this.bounds = bounds;
+    this._ambient.color.set(0x4a3060);
+    this.sun.color.set(0x9a70c0);
+    this.player.reset();
+    this.zombies.setupStage10();
+    this._updateCamera(1, true);
+  }
+
+  startStage11() {
+    this._clearStageGroup();
+    const { group, bounds } = buildSunBiome(this.scene);
+    this._stageGroup = group; this.bounds = bounds;
+    this._ambient.color.set(0xffb060);
+    this.sun.color.set(0xffe0a0);
+    this.player.reset();
+    // 自分と同じ武器・攻撃力のエンティティ
+    this.zombies.setupStage11(this.player.sword.weaponType, this.player.sword.damage);
+    this._updateCamera(1, true);
+  }
+
+  startStage12() {
+    this._clearStageGroup();
+    const { group, bounds } = buildWhiteWorldBiome(this.scene);
+    this._stageGroup = group; this.bounds = bounds;
+    this._ambient.color.set(0xf4f4f4);
+    this.sun.color.set(0xffffff);
+    this.player.reset();
+    this.zombies.setupStage12();
+    this._updateCamera(1, true);
+  }
+
+  // エンドレスモード：広い真っ白い世界
+  startEndless() {
+    this._clearStageGroup();
+    const R = 60;
+    const group = new THREE.Group();
+    const gM = new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: 0.92, emissive: 0xf4f4f4, emissiveIntensity: 0.25,
+    });
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(R + 12, 72), gM);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    group.add(ground);
+    this.scene.add(group);
+    this.scene.fog = new THREE.Fog(0xffffff, 32, R + 24);
+    this.scene.background = new THREE.Color(0xffffff);
+
+    this._stageGroup = group;
+    this.bounds = { radius: R };
+    this._ambient.color.set(0xf6f6f6);
+    this.sun.color.set(0xffffff);
+
+    this.player.reset();
+    this.zombies.setupEndless();
     this._updateCamera(1, true);
   }
 

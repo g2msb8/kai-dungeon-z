@@ -7,7 +7,9 @@ import { MiniZombie } from './MiniZombie.js';
 import { PurpleZombie } from './PurpleZombie.js';
 import { Boss } from './Boss.js';
 import { ArcherZombie } from './ArcherZombie.js';
-import { STAGE, STAGE2, STAGE3, STAGE4, STAGE5, STAGE6, STAGE7, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL, WEAPONS } from './core/Constants.js';
+import { PurpleElephant } from './PurpleElephant.js';
+import { SunEntity } from './SunEntity.js';
+import { STAGE, STAGE2, STAGE3, STAGE4, STAGE5, STAGE6, STAGE7, STAGE8, STAGE9, STAGE10, STAGE11, STAGE12, SWORD, BOSS, MINI_ZOMBIE, PURPLE_ZOMBIE, SPECIAL, WEAPONS } from './core/Constants.js';
 import { soundManager } from './SoundManager.js';
 
 export class ZombieManager {
@@ -35,6 +37,111 @@ export class ZombieManager {
     this._hasPurple    = false;
     this._purpleZombie = null;
     this._purpleSpawned = false;
+
+    // stage12 真っ白い世界（2ウェーブ）
+    this._whiteWorld = false;
+    this._whiteWave  = 0;
+
+    // エンドレスモード
+    this._endless      = false;
+    this._endlessCount = 0;
+    this.onEndlessKill = null;  // (count) => {} 倒すたびに通知
+  }
+
+  get endlessCount() { return this._endlessCount; }
+
+  // エンドレス：ゾンビ1匹から始まり、倒すたびに数が増えていく
+  setupEndless() {
+    this.clear();
+    this._endless      = true;
+    this._endlessCount = 0;
+    this._stageDrop    = { STONE: 0, ORE: 0 }; // 素材ドロップなし
+    this._spawnEndlessZombie();
+  }
+
+  _spawnEndlessZombie() {
+    const ang = Math.random() * Math.PI * 2;
+    const r   = 16 + Math.random() * 14;
+    const pos = new THREE.Vector3(Math.sin(ang) * r, 0, Math.cos(ang) * r);
+    const z   = new Zombie(pos);
+    this.scene.add(z.root);
+    this.zombies.push(z);
+  }
+
+  // ── 追加ステージ用スポーンヘルパー ───────────────────────────
+  _spawnAt(EnemyClass, rMin, rMax, ...args) {
+    const ang = Math.random() * Math.PI * 2;
+    const r   = rMin + Math.random() * (rMax - rMin);
+    const pos = new THREE.Vector3(Math.sin(ang) * r, 0, Math.cos(ang) * r);
+    const e = new EnemyClass(pos, ...args);
+    this.scene.add(e.root);
+    this.zombies.push(e);
+    return e;
+  }
+
+  _spawnElephant() { return this._spawnAt(PurpleElephant, 12, 18); }
+
+  // stage8: 海 — イノシシ/紫瞳/紫象 を各2体（全部 zombies 配列で扱う）
+  setupStage8() {
+    this.clear();
+    this._hasBoss = false; this._hasPurple = false; this._whiteWorld = false;
+    this._stageDrop = STAGE8.DROP;
+    const n = STAGE8.BOSS_EACH;
+    for (let i = 0; i < n; i++) {
+      this._spawnAt(Boss, 14, 18);
+      this._spawnAt(PurpleZombie, 12, 16);
+      this._spawnElephant();
+    }
+  }
+
+  // stage9: 宇宙 — 弓矢ゾンビ20体
+  setupStage9() {
+    this.clear();
+    this._hasBoss = false; this._hasPurple = false; this._whiteWorld = false;
+    this._stageDrop = STAGE9.DROP;
+    for (let i = 0; i < STAGE9.ARCHER_COUNT; i++) {
+      this._spawnAt(ArcherZombie, 14, STAGE9.RADIUS - 4, this.scene);
+    }
+  }
+
+  // stage10: 毒の森 — 各ゾンビ4体ずつ + 紫象1体
+  setupStage10() {
+    this.clear();
+    this._hasBoss = false; this._hasPurple = false; this._whiteWorld = false;
+    this._stageDrop = STAGE10.DROP;
+    const n = STAGE10.EACH;
+    for (let i = 0; i < n; i++) {
+      this._spawnAt(Zombie, 14, STAGE10.RADIUS - 4);
+      this._spawnAt(MiniZombie, 14, STAGE10.RADIUS - 4);
+      this._spawnAt(ArcherZombie, 14, STAGE10.RADIUS - 4, this.scene);
+      this._spawnAt(PurpleZombie, 12, 16);
+    }
+    for (let i = 0; i < STAGE10.ELEPHANT_COUNT; i++) this._spawnElephant();
+  }
+
+  // stage11: 太陽の中 — 自分と同じスキン・攻撃力のエンティティ2体（特殊技なし）
+  setupStage11(weaponType, damage) {
+    this.clear();
+    this._hasBoss = false; this._hasPurple = false; this._whiteWorld = false;
+    this._stageDrop = STAGE11.DROP;
+    for (let i = 0; i < STAGE11.ENTITY_COUNT; i++) {
+      this._spawnAt(SunEntity, 10, 14, weaponType, damage);
+    }
+  }
+
+  // stage12: 真っ白い世界 — ウェーブ1=ボス全種、全滅後にウェーブ2=紫象3体
+  setupStage12() {
+    this.clear();
+    this._hasBoss = false; this._hasPurple = false;
+    this._whiteWorld = true;
+    this._whiteWave  = 1;
+    this._stageDrop  = STAGE12.DROP;
+    const n = STAGE12.WAVE1_EACH;
+    for (let i = 0; i < n; i++) {
+      this._spawnAt(Boss, 14, 18);
+      this._spawnAt(PurpleZombie, 12, 16);
+      this._spawnElephant();
+    }
   }
 
   // ── スポーン ─────────────────────────────────────────────
@@ -252,6 +359,15 @@ export class ZombieManager {
       }
     }
 
+    // エンドレス: 常に必要数を維持して湧かせ続ける（クリア判定なし）
+    if (this._endless) {
+      const desired = 1 + Math.floor(this._endlessCount / 3); // 3体倒すごとに同時数+1
+      let active = this.zombies.filter(z => !z.dying).length;
+      let guard = 0;
+      while (active < desired && guard++ < 30) { this._spawnEndlessZombie(); active++; }
+      return totalDmg;
+    }
+
     // stage2: ゾンビ全滅後にボスをスポーン
     if (this._hasBoss && !this._bossSpawned && this.zombies.length === 0 && this.killed > 0) {
       this._spawnBoss();
@@ -260,6 +376,12 @@ export class ZombieManager {
     // stage3: ゾンビ全滅後に紫ゾンビをスポーン
     if (this._hasPurple && !this._purpleSpawned && this.zombies.length === 0 && this.killed > 0) {
       this._spawnPurpleZombie();
+    }
+
+    // stage12: ウェーブ1（ボス全種）を全滅 → ウェーブ2（紫象3体）
+    if (this._whiteWorld && this._whiteWave === 1 && this.zombies.length === 0 && this.killed > 0) {
+      this._whiteWave = 2;
+      for (let i = 0; i < STAGE12.WAVE2_ELEPHANTS; i++) this._spawnElephant();
     }
 
     // ボス更新
@@ -285,7 +407,8 @@ export class ZombieManager {
     // クリア判定
     const bossOk   = !this._hasBoss   || (this._bossSpawned   && this._boss         === null);
     const purpleOk = !this._hasPurple || (this._purpleSpawned && this._purpleZombie === null);
-    if (!this._clearedFired && this.zombies.length === 0 && this.killed > 0 && bossOk && purpleOk) {
+    const whiteOk  = !this._whiteWorld || this._whiteWave === 2;
+    if (!this._clearedFired && this.zombies.length === 0 && this.killed > 0 && bossOk && purpleOk && whiteOk) {
       this._clearedFired = true;
       if (this.onCleared) this.onCleared();
     }
@@ -1002,6 +1125,11 @@ export class ZombieManager {
 
   _onKill() {
     this.killed++;
+    if (this._endless) {
+      this._endlessCount++;
+      if (this.onEndlessKill) this.onEndlessKill(this._endlessCount);
+      return; // エンドレスは素材ドロップなし
+    }
     const got = { stone: false, ore: false };
     if (Math.random() < this._stageDrop.STONE) { this.drops.stone++; got.stone = true; }
     if (Math.random() < this._stageDrop.ORE)   { this.drops.ore++;   got.ore   = true; }
@@ -1034,6 +1162,10 @@ export class ZombieManager {
     this._bossSpawned   = false;
     this._hasPurple     = false;
     this._purpleSpawned = false;
+    this._whiteWorld    = false;
+    this._whiteWave     = 0;
+    this._endless       = false;
+    this._endlessCount  = 0;
   }
 }
 

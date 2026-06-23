@@ -33,11 +33,14 @@ export class HomeScene {
     this.nearTraining    = false;
     this.nearBlacksmith  = false;
     this.nearMyPage      = false;
+    this.nearEndless     = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
     this._blacksmithPos  = null;
     this._mypagePos      = null;
+    this._endlessPos     = null;
+    this._volcanoGlow    = null;
     this._mpDoorPivot    = null;
     this._mpDoorAngle    = 0;
     this._playerName     = null;
@@ -67,6 +70,7 @@ export class HomeScene {
     this._buildTrainingSpot();
     this._buildBlacksmith();
     this._buildMyPageHouse();
+    this._buildEndlessVolcano();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -443,6 +447,11 @@ export class HomeScene {
     // 滝テクスチャスクロール
     if (this._waterfallTex) this._waterfallTex.offset.y += dt * 0.85;
 
+    // 火山クレーターの灯りをゆらめかせる
+    if (this._volcanoGlow) {
+      this._volcanoGlow.intensity = 2.0 + Math.sin(this._elapsed * 6) * 0.5 + Math.sin(this._elapsed * 13) * 0.25;
+    }
+
     // しぶき粒子ボビング
     for (const sp of this._splashParts) {
       sp.position.y = sp._baseY + Math.sin(this._elapsed * sp._speed + sp._offset) * 0.04;
@@ -489,6 +498,7 @@ export class HomeScene {
     this.nearTraining   = this._trainingPos   ? p.distanceTo(this._trainingPos)   < 5.5 : false;
     this.nearBlacksmith = this._blacksmithPos ? p.distanceTo(this._blacksmithPos) < 5.5 : false;
     this.nearMyPage     = this._mypagePos     ? p.distanceTo(this._mypagePos)     < 5.5 : false;
+    this.nearEndless    = this._endlessPos    ? p.distanceTo(this._endlessPos)    < 5.5 : false;
 
     // マイページの家のドア開閉（近づくと勝手に開く）
     if (this._mpDoorPivot) {
@@ -898,6 +908,124 @@ export class HomeScene {
     }
 
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
+  // ─── エンドレス火山（上に鬼の形の煙）────────────────────────
+  _buildEndlessVolcano() {
+    const POS = new THREE.Vector3(9, 0, 9);
+    this._endlessPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = -Math.PI * 0.75; // クレーターを中央に見せる
+
+    const rockM  = new THREE.MeshStandardMaterial({ color: 0x3a302c, roughness: 0.98 });
+    const rockDk = new THREE.MeshStandardMaterial({ color: 0x241d1a, roughness: 1.0 });
+    const lavaM  = new THREE.MeshStandardMaterial({ color: 0xff5a1e, emissive: 0xff3300, emissiveIntensity: 2.4, roughness: 0.7 });
+    const lavaHot = new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0xff7a00, emissiveIntensity: 2.6, roughness: 0.6 });
+
+    // 火山本体（円錐の山）
+    const cone = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 2.5, 3.3, 14), rockM);
+    cone.position.y = 1.65;
+    g.add(cone);
+    // 裾の岩
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3.1, 0.5, 14), rockDk);
+    skirt.position.y = 0.25;
+    g.add(skirt);
+
+    // クレーターのマグマ
+    const crater = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.7, 0.3, 14), lavaM);
+    crater.position.y = 3.35;
+    g.add(crater);
+    const magma = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 7), lavaHot);
+    magma.position.y = 3.45;
+    magma.scale.y = 0.5;
+    g.add(magma);
+
+    // 流れ落ちる溶岩の筋
+    for (const a of [0.4, 2.0, 3.6, 5.1]) {
+      const flow = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.2, 0.10), lavaM);
+      flow.position.set(Math.sin(a) * 1.45, 1.7, Math.cos(a) * 1.45);
+      flow.rotation.y = -a;
+      flow.rotation.x = 0.12;
+      g.add(flow);
+    }
+
+    // クレーターの灯り
+    const glow = new THREE.PointLight(0xff5500, 2.2, 12);
+    glow.position.set(0, 3.7, 0);
+    g.add(glow);
+    this._volcanoGlow = glow;
+
+    // ── 上に立ちのぼる「鬼の形の煙」──
+    const smokeM = new THREE.MeshStandardMaterial({
+      color: 0x9a9a9a, roughness: 1.0, transparent: true, opacity: 0.72,
+    });
+    const smokeDk = new THREE.MeshStandardMaterial({
+      color: 0x6e6e6e, roughness: 1.0, transparent: true, opacity: 0.7,
+    });
+
+    // 立ちのぼる煙の柱
+    for (const [y, s] of [[4.3, 0.55], [4.9, 0.7], [5.6, 0.9]]) {
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(s, 8, 6), smokeM);
+      puff.position.set(0, y, 0);
+      g.add(puff);
+    }
+
+    // 鬼の頭（煙）
+    const headY = 6.6;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 9), smokeM);
+    head.position.set(0, headY, 0);
+    head.scale.set(1.05, 1.0, 0.95);
+    g.add(head);
+    // 頬・あご
+    const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.7, 9, 7), smokeM);
+    jaw.position.set(0, headY - 0.7, 0.15);
+    g.add(jaw);
+
+    // 角（2本）
+    const hornM = new THREE.MeshStandardMaterial({ color: 0xe8e2d0, roughness: 0.85, transparent: true, opacity: 0.85 });
+    for (const sx of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.95, 7), hornM);
+      horn.position.set(sx * 0.55, headY + 1.15, -0.1);
+      horn.rotation.z = sx * -0.35;
+      g.add(horn);
+    }
+
+    // 眉（怒り）
+    const browM = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 1.0, transparent: true, opacity: 0.85 });
+    for (const sx of [-1, 1]) {
+      const brow = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.13, 0.12), browM);
+      brow.position.set(sx * 0.45, headY + 0.34, -0.95);
+      brow.rotation.z = sx * 0.45;
+      g.add(brow);
+    }
+
+    // 光る目（赤）
+    const eyeM = new THREE.MeshStandardMaterial({ color: 0xffe000, emissive: 0xff3000, emissiveIntensity: 2.2 });
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.17, 8, 6), eyeM);
+      eye.position.set(sx * 0.42, headY + 0.12, -1.0);
+      g.add(eye);
+    }
+
+    // 牙（白い小さな三角）
+    const fangM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, transparent: true, opacity: 0.9 });
+    for (const sx of [-1, 1]) {
+      const fang = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.28, 5), fangM);
+      fang.position.set(sx * 0.28, headY - 0.95, -0.6);
+      fang.rotation.x = Math.PI;
+      g.add(fang);
+    }
+
+    // 看板
+    const sign = this._makeTextSprite('エンドレス');
+    sign.position.set(0, 0.9, 2.6);
+    sign.scale.set(3.0, 0.85, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
     this.scene.add(g);
   }
 
