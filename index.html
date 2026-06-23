@@ -316,7 +316,22 @@
       margin-bottom: 4px;
     }
     .petshop-coins {
-      font-size: 16px; color: #ffe082; margin-bottom: 14px; font-weight: bold;
+      font-size: 16px; color: #ffe082; margin-bottom: 12px; font-weight: bold;
+    }
+    .tier-btns {
+      display: flex; gap: 8px; margin-bottom: 14px; width: 100%; max-width: 360px;
+    }
+    .tier-btn {
+      flex: 1; padding: 11px 0; font-size: 16px; font-weight: bold;
+      color: #fff; border: 2px solid rgba(255,255,255,0.25); border-radius: 12px;
+      background: rgba(255,255,255,0.08); cursor: pointer; letter-spacing: 1px;
+    }
+    .tier-btn[data-tier="rare"]      { color: #9fd8ff; }
+    .tier-btn[data-tier="superrare"] { color: #ffcf6e; }
+    .tier-btn.selected {
+      background: linear-gradient(180deg, #ffd54f, #f57f17);
+      color: #2a1500; border-color: #fff3c4;
+      box-shadow: 0 0 14px rgba(255,190,0,0.6);
     }
     #petshop-result {
       width: 100%; max-width: 440px; min-height: 120px;
@@ -1123,6 +1138,11 @@
   <div id="petshop-overlay" class="hidden">
     <div class="petshop-title">🐾 ペットショップ</div>
     <div class="petshop-coins">所持コイン：<span id="petshop-coin-display">0</span></div>
+    <div class="tier-btns">
+      <button class="tier-btn selected" data-tier="normal">普通</button>
+      <button class="tier-btn" data-tier="rare">レア</button>
+      <button class="tier-btn" data-tier="superrare">激レア</button>
+    </div>
     <div id="petshop-result"><span class="ph">ガチャを引くとここにペットが出ます</span></div>
     <div class="petshop-active" id="petshop-active"></div>
     <div class="gacha-btns">

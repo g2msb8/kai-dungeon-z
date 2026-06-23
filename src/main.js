@@ -483,22 +483,48 @@ const gacha10Btn = document.getElementById('gacha-10');
 const petshopSwapBtn   = document.getElementById('petshop-swap-btn');
 const petshopSwapPanel = document.getElementById('petshop-swap');
 const petshopOwnedGrid = document.getElementById('petshop-owned-grid');
+const tierBtns = document.querySelectorAll('.tier-btn');
 
-// レア度順（レア→普通）で並べる
-const PET_DISPLAY_ORDER = ['graywolf', 'whitewolf', 'shiba', 'poodle', 'chihuahua'];
+// ガチャの段階ごとの価格（10連は割引）
+const PET_TIERS = {
+  normal:    { label: '普通',   one: 100,  ten: 1150 },
+  rare:      { label: 'レア',   one: 500,  ten: 2200 },
+  superrare: { label: '激レア', one: 1000, ten: 5000, soon: true },
+};
+let currentTier = 'normal';
+
+// 表示順（レア→普通）。所持一覧・入れ替えで使う
+const PET_DISPLAY_ORDER = [
+  'rampagecat', 'shycat', 'bigcat', 'purplecat',
+  'graywolf', 'whitewolf', 'shiba', 'poodle', 'chihuahua',
+];
 
 function _petName(type) { return PET_DEF[type] ? PET_DEF[type].name : type; }
 
 function _refreshPetShop() {
   const coins = getCoins();
+  const tier  = PET_TIERS[currentTier];
   petshopCoinEl.textContent = coins;
-  gacha1Btn.disabled  = coins < 100;
-  gacha10Btn.disabled = coins < 1150;
+
+  // タブの選択状態
+  tierBtns.forEach(b => b.classList.toggle('selected', b.dataset.tier === currentTier));
+
+  if (tier.soon) {
+    gacha1Btn.textContent  = '準備中…';
+    gacha10Btn.textContent = '準備中…';
+    gacha1Btn.disabled  = true;
+    gacha10Btn.disabled = true;
+  } else {
+    gacha1Btn.textContent  = `1回　${tier.one}円`;
+    gacha10Btn.textContent = `10連ガチャ　${tier.ten.toLocaleString()}円`;
+    gacha1Btn.disabled  = coins < tier.one;
+    gacha10Btn.disabled = coins < tier.ten;
+  }
+
   const active = getActivePet();
-  petshopActiveEl.textContent = active
+  petshopActiveEl.textContent = active && PET_DEF[active]
     ? `装備中のペット：${PET_DEF[active].emoji} ${_petName(active)}`
     : 'まだペットがいません';
-  // 1匹でも持っていれば入れ替えボタンを表示
   petshopSwapBtn.style.display = getOwnedPets().length > 0 ? '' : 'none';
 }
 
@@ -528,6 +554,7 @@ function openPetShop() {
   // 既に装備中のペットは所持リストにも入れておく（旧データ対応）
   const cur = getActivePet();
   if (cur) addOwnedPet(cur);
+  currentTier = 'normal';
   petshopSwapPanel.classList.add('hidden');
   _refreshPetShop();
   petshopResultEl.innerHTML = '<span class="ph">ガチャを引くとここにペットが出ます</span>';
@@ -545,24 +572,38 @@ function _renderGachaResults(types) {
   types.forEach(t => {
     const d = PET_DEF[t];
     const card = document.createElement('div');
-    card.className = 'pet-card' + (petRarity(t) >= 3 ? ' rare' : '');
+    card.className = 'pet-card' + ((PET_DEF[t].prob <= 17) ? ' rare' : '');
     card.innerHTML = `<div class="emoji">${d.emoji}</div><div class="nm">${d.name}</div>`;
     petshopResultEl.appendChild(card);
   });
   _refreshPetShop();
 }
 
-function _doGacha(count, cost) {
+function _doGacha(count) {
+  const tier = PET_TIERS[currentTier];
+  if (tier.soon) return;
+  const cost = count === 10 ? tier.ten : tier.one;
   if (getCoins() < cost) return;
   spendCoins(cost);
   petshopSwapPanel.classList.add('hidden');
   const results = [];
-  for (let i = 0; i < count; i++) results.push(rollPet());
+  for (let i = 0; i < count; i++) results.push(rollPet(currentTier));
   _renderGachaResults(results);
 }
 
-gacha1Btn.addEventListener('click',  () => _doGacha(1, 100));
-gacha10Btn.addEventListener('click', () => _doGacha(10, 1150));
+tierBtns.forEach(b => b.addEventListener('click', () => {
+  currentTier = b.dataset.tier;
+  petshopSwapPanel.classList.add('hidden');
+  if (PET_TIERS[currentTier].soon) {
+    petshopResultEl.innerHTML = '<span class="ph">激レアは準備中です（近日公開）</span>';
+  } else {
+    petshopResultEl.innerHTML = '<span class="ph">ガチャを引くとここにペットが出ます</span>';
+  }
+  _refreshPetShop();
+}));
+
+gacha1Btn.addEventListener('click',  () => _doGacha(1));
+gacha10Btn.addEventListener('click', () => _doGacha(10));
 petshopSwapBtn.addEventListener('click', () => {
   if (petshopSwapPanel.classList.contains('hidden')) {
     _renderOwnedPets();
