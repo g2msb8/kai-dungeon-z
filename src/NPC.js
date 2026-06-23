@@ -5,10 +5,12 @@ import { buildHumanoid } from './Humanoid.js';
 
 // 各施設のワールド座標（HomeScene の建物位置と一致させる）
 const DEST = {
-  training:   new THREE.Vector3(-12, 0,  0),
-  blacksmith: new THREE.Vector3( 12, 0,  0),
-  shop:       new THREE.Vector3(  0, 0,-12),
-  battle:     new THREE.Vector3(  0, 0, 12),
+  training:   new THREE.Vector3(-12,  0,  0),
+  blacksmith: new THREE.Vector3( 12,  0,  0),
+  shop:       new THREE.Vector3(  0,  0,-12),
+  battle:     new THREE.Vector3(  0,  0, 12),
+  petshop:    new THREE.Vector3(-4.5, 0,-13),
+  volcano:    new THREE.Vector3(  9,  0, -9),
 };
 
 // 外見はプレイヤーと完全に同じ（ユーザー要件）
@@ -135,10 +137,11 @@ export class NPC {
 
   // ── 行動選択（行動1〜8をランダムに）──────────────────────────────
   _pickBehavior() {
-    const tags = ['wait2', 'training', 'blacksmith', 'wander', 'battle', 'walkSwap', 'shop'];
-    const b = randInt(1, 8);
-    if (b === 8) this._pickSpeech();         // 行動8: セリフ
-    else         this._startAction(tags[b - 1]);
+    const tags = ['wait2', 'training', 'blacksmith', 'wander', 'battle', 'walkSwap', 'shop',
+                  'petShopVisit', 'volcanoVanish'];
+    const b = randInt(1, 10);
+    if (b === 10) this._pickSpeech();        // セリフ
+    else          this._startAction(tags[b - 1]);
   }
 
   // ── セリフ（行動8）：セリフ＋対応アクションからランダム ───────────
@@ -271,6 +274,25 @@ export class NPC {
       case 'toilet':
         this._wait(60, () => { this._say('トイレ終わった', 3000); this._wait(2.5); });
         break;
+      case 'petShopVisit':
+        // その場で12秒待つ → ペットショップへ → 10〜30秒立ち止まる
+        this._wait(12, () => {
+          const d = DEST.petshop.clone().add(new THREE.Vector3(rand(-1.5, 1.5), 0, rand(1.5, 3.0)));
+          this._moveTo(d, () => this._wait(rand(10, 30)));
+        });
+        break;
+      case 'volcanoVanish': {
+        // エンドレス火山の真ん中へ → 4秒待つ → 急に消えて再出現
+        const d = DEST.volcano.clone();
+        this._moveTo(d, () => {
+          this._wait(4, () => {
+            this._clearSpeech(); this._vanish();
+            this._appearCenter = true;
+            this._state = 'gone'; this._stateTimer = rand(10, 30);
+          });
+        });
+        break;
+      }
       default:
         this._wait(2);
     }
