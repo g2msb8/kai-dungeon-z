@@ -17,6 +17,7 @@ import { Stage6Opening }  from './ui/Stage6Opening.js';
 import { Stage7Opening }  from './ui/Stage7Opening.js';
 import { GenericOpening } from './ui/GenericOpening.js';
 import { BossChallenge } from './ui/BossChallenge.js';
+import { rollPet, petRarity, PET_DEF } from './Pet.js';
 
 const STATE = {
   HOME:           'home',
@@ -311,6 +312,7 @@ const trainStopBtn   = document.getElementById('btn-home-train-stop');
 const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
 const mypageEnterBtn = document.getElementById('btn-home-mypage-enter');
 const endlessEnterBtn = document.getElementById('btn-home-endless-enter');
+const petshopEnterBtn = document.getElementById('btn-home-petshop-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -322,6 +324,7 @@ battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
 trainEnterBtn.addEventListener('click', () => { startTraining(); });
 trainStopBtn.addEventListener('click',  () => { stopTraining(); });
 endlessEnterBtn.addEventListener('click', () => { startEndlessMode(); });
+petshopEnterBtn.addEventListener('click', () => { openPetShop(); });
 
 // ─── マイページ（自分の名前変更）──────────────────────────────
 const PLAYER_NAME_KEY = 'dz_player_name';
@@ -454,6 +457,68 @@ function _showEndlessOver(count) {
     showHome();
   });
 }
+
+// ─── ペットショップ（ガチャ）──────────────────────────────────
+const PET_KEY = 'dz_pet';
+function getActivePet() { return localStorage.getItem(PET_KEY) || null; }
+function setActivePet(type) { localStorage.setItem(PET_KEY, type); }
+
+const petshopOverlay  = document.getElementById('petshop-overlay');
+const petshopCoinEl   = document.getElementById('petshop-coin-display');
+const petshopResultEl = document.getElementById('petshop-result');
+const petshopActiveEl = document.getElementById('petshop-active');
+const gacha1Btn  = document.getElementById('gacha-1');
+const gacha10Btn = document.getElementById('gacha-10');
+
+function _petName(type) { return PET_DEF[type] ? PET_DEF[type].name : type; }
+
+function _refreshPetShop() {
+  const coins = getCoins();
+  petshopCoinEl.textContent = coins;
+  gacha1Btn.disabled  = coins < 100;
+  gacha10Btn.disabled = coins < 1150;
+  const active = getActivePet();
+  petshopActiveEl.textContent = active
+    ? `バトルに連れて行くペット：${PET_DEF[active].emoji} ${_petName(active)}`
+    : 'まだペットがいません';
+}
+
+function openPetShop() {
+  _refreshPetShop();
+  petshopResultEl.innerHTML = '<span class="ph">ガチャを引くとここにペットが出ます</span>';
+  petshopOverlay.classList.remove('hidden');
+}
+
+function _renderGachaResults(types) {
+  // 一番レアなものをアクティブにする
+  let best = types[0];
+  for (const t of types) if (petRarity(t) > petRarity(best)) best = t;
+  setActivePet(best);
+
+  petshopResultEl.innerHTML = '';
+  types.forEach(t => {
+    const d = PET_DEF[t];
+    const card = document.createElement('div');
+    card.className = 'pet-card' + (petRarity(t) >= 3 ? ' rare' : '');
+    card.innerHTML = `<div class="emoji">${d.emoji}</div><div class="nm">${d.name}</div>`;
+    petshopResultEl.appendChild(card);
+  });
+  _refreshPetShop();
+}
+
+function _doGacha(count, cost) {
+  if (getCoins() < cost) return;
+  spendCoins(cost);
+  const results = [];
+  for (let i = 0; i < count; i++) results.push(rollPet());
+  _renderGachaResults(results);
+}
+
+gacha1Btn.addEventListener('click',  () => _doGacha(1, 100));
+gacha10Btn.addEventListener('click', () => _doGacha(10, 1150));
+document.getElementById('petshop-close').addEventListener('click', () => {
+  petshopOverlay.classList.add('hidden');
+});
 
 // ─── 修行システム ─────────────────────────────────────────
 const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
@@ -1127,12 +1192,19 @@ document.getElementById('btn-home-from-over').addEventListener('click', () => {
 // ─── メインループ ───────────────────────────────────────────
 let rafId = null;
 let last  = performance.now();
+let _prevState = null;
 function loop(now) {
   let dt = (now - last) / 1000;
   last = now;
   dt = Math.min(dt, 0.05);
 
   const move = getMoveInput();
+
+  // バトル開始の瞬間（PLAYINGに入った最初のフレーム）にペットを出す
+  if (state === STATE.PLAYING && _prevState !== STATE.PLAYING) {
+    game.spawnPet(getActivePet());
+  }
+  _prevState = state;
 
   if (state === STATE.HOME) {
     homeScene.setJoy(move);
@@ -1157,6 +1229,9 @@ function loop(now) {
 
     // エンドレス火山ボタン
     endlessEnterBtn.classList.toggle('hidden', !homeScene.nearEndless);
+
+    // ペットショップボタン
+    petshopEnterBtn.classList.toggle('hidden', !homeScene.nearPetShop);
 
     // 修行タイマー更新
     if (trainingActive) {

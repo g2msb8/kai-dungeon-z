@@ -14,6 +14,7 @@ import { buildSunBiome } from './SunBiome.js';
 import { buildWhiteWorldBiome } from './WhiteWorldBiome.js';
 import { Player } from './Player.js';
 import { ZombieManager } from './ZombieManager.js';
+import { Pet } from './Pet.js';
 import { COLORS, PLAYER } from './core/Constants.js';
 
 export class Game {
@@ -52,6 +53,7 @@ export class Game {
     this.scene.add(this.player.root);
 
     this.zombies = new ZombieManager(this.scene);
+    this.pet = null;
 
     this._camTarget = new THREE.Vector3();
     this._updateCamera(1, true);
@@ -87,7 +89,20 @@ export class Game {
     }
     this.player._clones = aliveClones;
 
-    const dmg = this.zombies.update(dt, this.player, this.player._clones);
+    // ゾンビが攻撃できる対象（分身＋ペット）
+    const targets = aliveClones.slice();
+
+    // ペット更新（追従＋ゾンビに噛みつく）
+    if (this.pet) {
+      if (this.pet.alive) {
+        this.pet.update(dt, this.player, this.zombies.zombies, () => this.zombies.recordKill());
+        targets.push(this.pet);
+      } else {
+        this.pet = null;
+      }
+    }
+
+    const dmg = this.zombies.update(dt, this.player, targets);
     if (dmg > 0 && !this.player.invincible) this.player.takeDamage(dmg);
     this._updateCamera(dt, false);
   }
@@ -281,6 +296,15 @@ export class Game {
     this.player.reset();
     this.zombies.setupEndless();
     this._updateCamera(1, true);
+  }
+
+  // バトル開始時にペットを出す（type が null なら出さない）
+  spawnPet(type) {
+    if (this.pet) { this.pet.dispose(); this.pet = null; }
+    if (!type) return;
+    const p = this.player.root.position;
+    const pos = new THREE.Vector3(p.x + 1.3, 0, p.z + 1.3);
+    this.pet = new Pet(this.scene, pos, type);
   }
 
   _clearStageGroup() {

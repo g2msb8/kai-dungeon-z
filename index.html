@@ -295,6 +295,71 @@
       background: linear-gradient(180deg, #ff7043, #b71c1c);
       box-shadow: 0 4px 0 #7f0000, 0 6px 18px rgba(0,0,0,0.4);
     }
+    #btn-home-petshop-enter {
+      background: linear-gradient(180deg, #ffb74d, #a6432e);
+      box-shadow: 0 4px 0 #7d2f20, 0 6px 18px rgba(0,0,0,0.4);
+    }
+
+    /* ===== ペットショップ ガチャ ===== */
+    #petshop-overlay {
+      position: fixed; inset: 0; z-index: 52;
+      height: var(--app-height, 100%);
+      background: rgba(8, 6, 14, 0.96);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 26px 16px calc(28px + env(safe-area-inset-bottom));
+      overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+    }
+    #petshop-overlay.hidden { display: none; }
+    .petshop-title {
+      font-size: 26px; font-weight: bold; letter-spacing: 2px;
+      color: #ffcc80; text-shadow: 0 0 16px rgba(255,150,0,0.5);
+      margin-bottom: 4px;
+    }
+    .petshop-coins {
+      font-size: 16px; color: #ffe082; margin-bottom: 14px; font-weight: bold;
+    }
+    #petshop-result {
+      width: 100%; max-width: 440px; min-height: 120px;
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(255,200,120,0.35);
+      border-radius: 14px; padding: 14px;
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center;
+      margin-bottom: 18px;
+    }
+    #petshop-result .ph { color: rgba(255,255,255,0.45); font-size: 14px; }
+    .pet-card {
+      display: flex; flex-direction: column; align-items: center;
+      background: rgba(0,0,0,0.35); border-radius: 12px; padding: 8px 10px;
+      min-width: 84px; border: 2px solid rgba(255,255,255,0.12);
+      animation: petPop 0.4s ease-out both;
+    }
+    .pet-card.rare { border-color: #ffd740; box-shadow: 0 0 14px rgba(255,200,0,0.6); }
+    .pet-card .emoji { font-size: 34px; line-height: 1; }
+    .pet-card .nm    { font-size: 12px; color: #fff; margin-top: 3px; font-weight: bold; }
+    @keyframes petPop {
+      0%   { transform: scale(0.3); opacity: 0; }
+      70%  { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); }
+    }
+    .petshop-active {
+      font-size: 14px; color: #b9f6ca; margin-bottom: 16px; text-align: center;
+      min-height: 20px;
+    }
+    .gacha-btns { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 360px; }
+    .gacha-btn {
+      padding: 18px 0; font-size: 19px; font-weight: bold; letter-spacing: 1px;
+      color: #fff; border: none; border-radius: 16px; cursor: pointer;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    #gacha-1 { background: linear-gradient(180deg, #4dd0e1, #00838f); box-shadow: 0 6px 0 #005662; }
+    #gacha-1:active { transform: translateY(4px); box-shadow: 0 2px 0 #005662; }
+    #gacha-10 { background: linear-gradient(180deg, #ffb74d, #e65100); box-shadow: 0 6px 0 #bf360c; }
+    #gacha-10:active { transform: translateY(4px); box-shadow: 0 2px 0 #bf360c; }
+    .gacha-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+    #petshop-close {
+      margin-top: 22px; padding: 12px 36px; font-size: 16px; font-weight: bold;
+      color: #fff; background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.3); border-radius: 12px; cursor: pointer;
+    }
 
     /* ===== エンドレス 撃破カウンター ===== */
     #endless-counter {
@@ -992,6 +1057,7 @@
       <button id="btn-home-forge-enter"  class="home-action-btn hidden">🔨 武器を強化する</button>
       <button id="btn-home-mypage-enter" class="home-action-btn hidden">🏠 マイページに入る</button>
       <button id="btn-home-endless-enter" class="home-action-btn hidden">🌋 エンドレス</button>
+      <button id="btn-home-petshop-enter" class="home-action-btn hidden">🐾 ペットショップに入る</button>
     </div>
     <!-- 修行中UI -->
     <div id="home-train-ui">
@@ -1026,6 +1092,19 @@
       <div class="forge-weapon-grid" id="forge-weapon-grid"></div>
       <button id="forge-ok-btn" disabled>OK — 強化を依頼する</button>
     </div>
+  </div>
+
+  <!-- ペットショップ ガチャ -->
+  <div id="petshop-overlay" class="hidden">
+    <div class="petshop-title">🐾 ペットショップ</div>
+    <div class="petshop-coins">所持コイン：<span id="petshop-coin-display">0</span></div>
+    <div id="petshop-result"><span class="ph">ガチャを引くとここにペットが出ます</span></div>
+    <div class="petshop-active" id="petshop-active"></div>
+    <div class="gacha-btns">
+      <button class="gacha-btn" id="gacha-1">1回　100円</button>
+      <button class="gacha-btn" id="gacha-10">10連ガチャ　1,150円</button>
+    </div>
+    <button id="petshop-close">とじる</button>
   </div>
 
   <!-- レベルアップ通知（ホーム画面・body直下） -->

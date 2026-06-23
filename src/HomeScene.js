@@ -34,12 +34,14 @@ export class HomeScene {
     this.nearBlacksmith  = false;
     this.nearMyPage      = false;
     this.nearEndless     = false;
+    this.nearPetShop     = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
     this._blacksmithPos  = null;
     this._mypagePos      = null;
     this._endlessPos     = null;
+    this._petShopPos     = null;
     this._volcanoGlow    = null;
     this._mpDoorPivot    = null;
     this._mpDoorAngle    = 0;
@@ -71,6 +73,7 @@ export class HomeScene {
     this._buildBlacksmith();
     this._buildMyPageHouse();
     this._buildEndlessVolcano();
+    this._buildPetShop();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -499,6 +502,7 @@ export class HomeScene {
     this.nearBlacksmith = this._blacksmithPos ? p.distanceTo(this._blacksmithPos) < 5.5 : false;
     this.nearMyPage     = this._mypagePos     ? p.distanceTo(this._mypagePos)     < 5.5 : false;
     this.nearEndless    = this._endlessPos    ? p.distanceTo(this._endlessPos)    < 5.5 : false;
+    this.nearPetShop    = this._petShopPos    ? p.distanceTo(this._petShopPos)    < 5.5 : false;
 
     // マイページの家のドア開閉（近づくと勝手に開く）
     if (this._mpDoorPivot) {
@@ -819,6 +823,99 @@ export class HomeScene {
     const sign = this._makeTextSprite('ショップ');
     sign.position.set(0, 3.25, 0.26);
     sign.scale.set(3.1, 0.88, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
+  // ─── ペットショップ（ショップと同形・レンガ壁＋黒屋根）──────
+  _buildPetShop() {
+    const POS = new THREE.Vector3(-4.5, 0, -13);
+    this._petShopPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.atan2(POS.x, POS.z); // 中央向き（ショップと同規約）
+
+    const wood    = new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.8 });
+    const topWood = new THREE.MeshStandardMaterial({ color: 0x7a4a28, roughness: 0.7 });
+    const brick   = new THREE.MeshStandardMaterial({ color: 0xa6432e, roughness: 0.92 }); // レンガ
+    const brickDk = new THREE.MeshStandardMaterial({ color: 0x7d2f20, roughness: 0.95 });
+    const blackRoof = new THREE.MeshStandardMaterial({ color: 0x14140f, roughness: 0.8 }); // 黒い屋根
+
+    // カウンター本体
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.1, 1.2), wood);
+    counter.position.y = 0.55;
+    g.add(counter);
+
+    // カウンター天板
+    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.09, 1.28), topWood);
+    topPlate.position.y = 1.14;
+    g.add(topPlate);
+
+    // 後ろ壁（レンガ）
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.5, 0.12), brick);
+    back.position.set(0, 1.25, -0.6);
+    g.add(back);
+    // レンガの横目地（暗い帯）
+    for (const by of [0.5, 1.1, 1.7, 2.3]) {
+      const line = new THREE.Mesh(new THREE.BoxGeometry(3.22, 0.05, 0.13), brickDk);
+      line.position.set(0, by, -0.6);
+      g.add(line);
+    }
+
+    // 左右の壁（レンガ）
+    for (const sx of [-1.54, 1.54]) {
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.5, 1.2), brick);
+      sw.position.set(sx, 1.25, 0);
+      g.add(sw);
+    }
+
+    // 屋根（黒）
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.7, 0.15, 1.7), blackRoof);
+    roof.position.y = 2.57;
+    g.add(roof);
+    // 黒い庇
+    const eave = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.1, 0.3), blackRoof);
+    eave.position.set(0, 2.45, 0.7);
+    g.add(eave);
+
+    // 前柱
+    for (const sx of [-1.42, 1.42]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8), wood);
+      post.position.set(sx, 1.25, 0.52);
+      g.add(post);
+    }
+
+    // カウンター上の肉球マーク（白）と骨
+    const pawM = new THREE.MeshStandardMaterial({ color: 0xfff4e0, roughness: 0.6 });
+    const paw = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), pawM);
+    paw.scale.set(1, 0.5, 1);
+    paw.position.set(-0.8, 1.26, 0.2);
+    g.add(paw);
+    for (const [ox, oz] of [[-0.12, 0.08], [0.12, 0.08], [-0.16, -0.04], [0.16, -0.04]]) {
+      const toe = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), pawM);
+      toe.scale.set(1, 0.5, 1);
+      toe.position.set(-0.8 + ox, 1.27, 0.2 + oz + 0.12);
+      g.add(toe);
+    }
+    // 骨
+    const boneM = new THREE.MeshStandardMaterial({ color: 0xf2ecd8, roughness: 0.6 });
+    const bone = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.07, 0.07), boneM);
+    bone.position.set(0.75, 1.6, 0.18);
+    bone.rotation.z = 0.2;
+    g.add(bone);
+    for (const ex of [-0.18, 0.18]) for (const ez of [-0.06, 0.06]) {
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 5), boneM);
+      knob.position.set(0.75 + ex, 1.6 + ex * 0.2, 0.18 + ez);
+      g.add(knob);
+    }
+
+    // 「ペットショップ」看板
+    const sign = this._makeTextSprite('ペットショップ');
+    sign.position.set(0, 3.25, 0.26);
+    sign.scale.set(3.4, 0.84, 1);
     g.add(sign);
 
     g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
