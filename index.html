@@ -354,7 +354,32 @@
     #gacha-1:active { transform: translateY(4px); box-shadow: 0 2px 0 #005662; }
     #gacha-10 { background: linear-gradient(180deg, #ffb74d, #e65100); box-shadow: 0 6px 0 #bf360c; }
     #gacha-10:active { transform: translateY(4px); box-shadow: 0 2px 0 #bf360c; }
+    #petshop-swap-btn { background: linear-gradient(180deg, #81c784, #2e7d32); box-shadow: 0 6px 0 #1b5e20; }
+    #petshop-swap-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1b5e20; }
     .gacha-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    /* 入れ替えパネル（手持ちペット一覧） */
+    #petshop-swap {
+      width: 100%; max-width: 440px; margin-top: 18px;
+      background: rgba(255,255,255,0.05); border: 2px solid rgba(120,230,140,0.4);
+      border-radius: 14px; padding: 14px;
+    }
+    #petshop-swap.hidden { display: none; }
+    .petshop-swap-title {
+      font-size: 14px; color: #b9f6ca; text-align: center; margin-bottom: 12px; font-weight: bold;
+    }
+    #petshop-owned-grid {
+      display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;
+    }
+    .owned-card { cursor: pointer; transition: transform 0.08s; min-width: 92px; }
+    .owned-card:active { transform: scale(0.94); }
+    .owned-card .eqbadge {
+      margin-top: 5px; font-size: 11px; font-weight: bold;
+      padding: 2px 8px; border-radius: 8px;
+      background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7);
+    }
+    .owned-card.equipped { border-color: #6ee26e; box-shadow: 0 0 14px rgba(110,226,110,0.6); }
+    .owned-card.equipped .eqbadge { background: #2e7d32; color: #fff; }
     #petshop-close {
       margin-top: 22px; padding: 12px 36px; font-size: 16px; font-weight: bold;
       color: #fff; background: rgba(255,255,255,0.12);
@@ -1103,6 +1128,11 @@
     <div class="gacha-btns">
       <button class="gacha-btn" id="gacha-1">1回　100円</button>
       <button class="gacha-btn" id="gacha-10">10連ガチャ　1,150円</button>
+      <button class="gacha-btn" id="petshop-swap-btn" style="display:none;">🔄 ペットの入れ替え</button>
+    </div>
+    <div id="petshop-swap" class="hidden">
+      <div class="petshop-swap-title">手持ちのペット（タップで装備）</div>
+      <div id="petshop-owned-grid"></div>
     </div>
     <button id="petshop-close">とじる</button>
   </div>
