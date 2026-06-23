@@ -913,12 +913,13 @@ export class HomeScene {
 
   // ─── エンドレス火山（上に鬼の形の煙）────────────────────────
   _buildEndlessVolcano() {
-    const POS = new THREE.Vector3(9, 0, 9);
+    // 前方右側（開始時のカメラ視界内）に配置
+    const POS = new THREE.Vector3(9, 0, -9);
     this._endlessPos = POS.clone();
 
     const g = new THREE.Group();
     g.position.copy(POS);
-    g.rotation.y = -Math.PI * 0.75; // クレーターを中央に見せる
+    g.rotation.y = -Math.PI / 4; // 看板を中央（プレイヤー側）に向ける
 
     const rockM  = new THREE.MeshStandardMaterial({ color: 0x3a302c, roughness: 0.98 });
     const rockDk = new THREE.MeshStandardMaterial({ color: 0x241d1a, roughness: 1.0 });
