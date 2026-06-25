@@ -108,20 +108,26 @@ function updateCoinDisplay() {
   if (el3) el3.textContent = c;
 }
 
-// ─── 素材（古びた石・鉄の鉱石）の累計 ─────────────────────────
-function getStoneTotal() { return parseInt(localStorage.getItem('dz_stone') || '0', 10); }
-function getOreTotal()   { return parseInt(localStorage.getItem('dz_ore')   || '0', 10); }
+// ─── 素材（古びた石・鉄の鉱石・ダイヤ）の累計 ─────────────────
+function getStoneTotal()   { return parseInt(localStorage.getItem('dz_stone')   || '0', 10); }
+function getOreTotal()     { return parseInt(localStorage.getItem('dz_ore')     || '0', 10); }
+function getDiamondTotal() { return parseInt(localStorage.getItem('dz_diamond') || '0', 10); }
+function setStoneTotal(n)   { localStorage.setItem('dz_stone',   String(Math.max(0, n))); }
+function setOreTotal(n)     { localStorage.setItem('dz_ore',     String(Math.max(0, n))); }
+function setDiamondTotal(n) { localStorage.setItem('dz_diamond', String(Math.max(0, n))); }
 function addMaterials(drops) {
   if (!drops) return;
-  localStorage.setItem('dz_stone', String(getStoneTotal() + (drops.stone || 0)));
-  localStorage.setItem('dz_ore',   String(getOreTotal()   + (drops.ore   || 0)));
+  setStoneTotal(getStoneTotal() + (drops.stone || 0));
+  setOreTotal(getOreTotal()   + (drops.ore   || 0));
   updateMaterialDisplay();
 }
 function updateMaterialDisplay() {
   const s = document.getElementById('home-stone-display');
   const o = document.getElementById('home-ore-display');
+  const d = document.getElementById('home-diamond-display');
   if (s) s.textContent = getStoneTotal();
   if (o) o.textContent = getOreTotal();
+  if (d) d.textContent = getDiamondTotal();
 }
 
 // ─── 特殊技の定義 ──────────────────────────────────────────
@@ -188,6 +194,8 @@ function hideShop() {
 // ── ショップ選択メニュー（剣 / 特殊技）──
 function showShopMenu() {
   updateCoinDisplay();
+  // ダイヤを持っているときだけ「剣を強化」を表示
+  document.getElementById('btn-shop-gemforge').classList.toggle('hidden', getDiamondTotal() <= 0);
   shopMenuEl.classList.remove('hidden');
 }
 function hideShopMenu() {
@@ -272,6 +280,8 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_player_name');
   localStorage.removeItem('dz_stone');
   localStorage.removeItem('dz_ore');
+  localStorage.removeItem('dz_diamond');
+  localStorage.removeItem('dz_diamond_enhance');
   homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
@@ -333,6 +343,23 @@ function addEnhanceBonus(weaponType) {
   localStorage.setItem('dz_enhance', JSON.stringify(b));
 }
 
+// ダイヤ強化（剣を強化）：1回 +1.5、武器ごとに回数を保存
+function getDiamondEnhances() {
+  try { return JSON.parse(localStorage.getItem('dz_diamond_enhance') || '{}'); } catch { return {}; }
+}
+function getDiamondEnhanceCount(weaponType) {
+  return getDiamondEnhances()[weaponType] ?? 0;
+}
+function addDiamondEnhance(weaponType) {
+  const b = getDiamondEnhances();
+  b[weaponType] = (b[weaponType] ?? 0) + 1;
+  localStorage.setItem('dz_diamond_enhance', JSON.stringify(b));
+}
+// 鍛冶屋(+1×回数) と ダイヤ強化(+1.5×回数) の合計フラットボーナス
+function getTotalEnhanceBonus(weaponType) {
+  return getEnhanceBonus(weaponType) + getDiamondEnhanceCount(weaponType) * 1.5;
+}
+
 // ─── ホーム画面 近接ボタン ────────────────────────────────
 const shopEnterBtn   = document.getElementById('btn-home-shop-enter');
 const battleEnterBtn = document.getElementById('btn-home-battle-enter');
@@ -342,6 +369,8 @@ const forgeEnterBtn  = document.getElementById('btn-home-forge-enter');
 const mypageEnterBtn = document.getElementById('btn-home-mypage-enter');
 const endlessEnterBtn = document.getElementById('btn-home-endless-enter');
 const petshopEnterBtn = document.getElementById('btn-home-petshop-enter');
+const stoneshopEnterBtn = document.getElementById('btn-home-stoneshop-enter');
+const sellgemEnterBtn   = document.getElementById('btn-home-sellgem-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -353,6 +382,8 @@ battleEnterBtn.addEventListener('click', () => { startBattleFlow(); });
 trainEnterBtn.addEventListener('click', () => { startTraining(); });
 trainStopBtn.addEventListener('click',  () => { stopTraining(); });
 endlessEnterBtn.addEventListener('click', () => { startEndlessMode(); });
+stoneshopEnterBtn.addEventListener('click', () => { openStoneShop(); });
+sellgemEnterBtn.addEventListener('click', () => { openSellGem(); });
 petshopEnterBtn.addEventListener('click', () => { openPetShop(); });
 
 // ─── マイページ（自分の名前変更）──────────────────────────────
@@ -714,6 +745,104 @@ function _renderRobotShop() {
     robotShopItemsEl.appendChild(row);
   });
 }
+
+// ─── 石売り場（石→ダイヤ変換）─────────────────────────────────
+const stoneshopOverlay = document.getElementById('stoneshop-overlay');
+const stoneshopCounts  = document.getElementById('stoneshop-counts');
+const convertStoneBtn  = document.getElementById('convert-stone');
+const convertOreBtn    = document.getElementById('convert-ore');
+
+function _refreshStoneShop() {
+  stoneshopCounts.innerHTML =
+    `古びた石：<b>${getStoneTotal()}</b>　／　鉄の鉱石：<b>${getOreTotal()}</b><br>` +
+    `所持ダイヤ：<b>💎 ${getDiamondTotal()}</b>`;
+  convertStoneBtn.disabled = getStoneTotal() < 1;
+  convertOreBtn.disabled   = getOreTotal()   < 1;
+}
+function openStoneShop() {
+  _refreshStoneShop();
+  stoneshopOverlay.classList.remove('hidden');
+}
+convertStoneBtn.addEventListener('click', () => {
+  if (getStoneTotal() < 1) return;
+  setStoneTotal(getStoneTotal() - 1);
+  setDiamondTotal(getDiamondTotal() + 1);
+  updateMaterialDisplay(); _refreshStoneShop();
+});
+convertOreBtn.addEventListener('click', () => {
+  if (getOreTotal() < 1) return;
+  setOreTotal(getOreTotal() - 1);
+  setDiamondTotal(getDiamondTotal() + 2);
+  updateMaterialDisplay(); _refreshStoneShop();
+});
+document.getElementById('stoneshop-close').addEventListener('click', () => {
+  stoneshopOverlay.classList.add('hidden');
+});
+
+// ─── ダイヤを売る（鍛冶屋）1個＝200円 ──────────────────────────
+const sellgemOverlay = document.getElementById('sellgem-overlay');
+const sellgemCounts  = document.getElementById('sellgem-counts');
+const sellGemBtn     = document.getElementById('sell-gem');
+
+function _refreshSellGem() {
+  sellgemCounts.innerHTML = `所持ダイヤ：<b>💎 ${getDiamondTotal()}</b>　／　1個 = 200円`;
+  sellGemBtn.disabled = getDiamondTotal() < 1;
+}
+function openSellGem() {
+  _refreshSellGem();
+  sellgemOverlay.classList.remove('hidden');
+}
+sellGemBtn.addEventListener('click', () => {
+  if (getDiamondTotal() < 1) return;
+  setDiamondTotal(getDiamondTotal() - 1);
+  addCoins(200);
+  updateMaterialDisplay(); _refreshSellGem();
+});
+document.getElementById('sellgem-close').addEventListener('click', () => {
+  sellgemOverlay.classList.add('hidden');
+});
+
+// ─── 剣を強化（ダイヤ2個で +1.5）─────────────────────────────
+const GEMFORGE_COST = 2;
+const gemforgeOverlay = document.getElementById('gemforge-overlay');
+const gemforgeCounts  = document.getElementById('gemforge-counts');
+const gemforgeGrid    = document.getElementById('gemforge-grid');
+
+function _renderGemForge() {
+  gemforgeCounts.innerHTML = `所持ダイヤ：<b>💎 ${getDiamondTotal()}</b>　（1回 ダイヤ${GEMFORGE_COST}個で攻撃力+1.5）`;
+  const owned = getOwned();
+  gemforgeGrid.innerHTML = '';
+  const order = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
+  order.forEach(id => {
+    if (!owned[id] && id !== 'copper') return;
+    const lv = getDiamondEnhanceCount(id);
+    const btn = document.createElement('button');
+    btn.className = 'forge-weapon-btn';
+    btn.innerHTML = `${WEAPON_NAMES_SHORT[id] ?? id}<div class="forge-weapon-bonus">ダイヤ強化: +${(lv * 1.5).toFixed(1)}</div>`;
+    btn.disabled = getDiamondTotal() < GEMFORGE_COST;
+    btn.addEventListener('click', () => {
+      if (getDiamondTotal() < GEMFORGE_COST) return;
+      setDiamondTotal(getDiamondTotal() - GEMFORGE_COST);
+      addDiamondEnhance(id);
+      btn.classList.add('selected');           // 鍛冶屋のように緑色
+      _showForgeComplete(id);                   // 「強化完成」エフェクト
+      updateMaterialDisplay();
+      setTimeout(() => _renderGemForge(), 350); // 表示更新
+    });
+    gemforgeGrid.appendChild(btn);
+  });
+}
+function openGemForge() {
+  _renderGemForge();
+  gemforgeOverlay.classList.remove('hidden');
+}
+document.getElementById('gemforge-close').addEventListener('click', () => {
+  gemforgeOverlay.classList.add('hidden');
+});
+document.getElementById('btn-shop-gemforge').addEventListener('click', () => {
+  hideShopMenu();
+  openGemForge();
+});
 
 // ─── 修行システム ─────────────────────────────────────────
 const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
@@ -1138,7 +1267,7 @@ function applyWeaponBonuses() {
   const wt = getBestWeapon();
   game.player.setWeapon(wt);
   game.player.setTrainingBonus(getTrainingBonus());
-  game.player.setEnhanceBonus(getEnhanceBonus(wt));
+  game.player.setEnhanceBonus(getTotalEnhanceBonus(wt)); // 鍛冶屋＋ダイヤ強化
 }
 
 // ─── 現在のステージをリトライ（ステージを維持して再挑戦） ──
@@ -1430,6 +1559,12 @@ function loop(now) {
 
     // ペットショップボタン
     petshopEnterBtn.classList.toggle('hidden', !homeScene.nearPetShop);
+
+    // 石売り場ボタン
+    stoneshopEnterBtn.classList.toggle('hidden', !homeScene.nearStoneShop);
+
+    // ダイヤを売るボタン（鍛冶屋の近くでダイヤを持っているとき）
+    sellgemEnterBtn.classList.toggle('hidden', !(homeScene.nearBlacksmith && getDiamondTotal() > 0));
 
     // 修行タイマー更新
     if (trainingActive) {

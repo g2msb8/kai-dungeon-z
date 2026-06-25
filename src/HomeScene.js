@@ -35,6 +35,7 @@ export class HomeScene {
     this.nearMyPage      = false;
     this.nearEndless     = false;
     this.nearPetShop     = false;
+    this.nearStoneShop   = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
@@ -42,6 +43,7 @@ export class HomeScene {
     this._mypagePos      = null;
     this._endlessPos     = null;
     this._petShopPos     = null;
+    this._stoneShopPos   = null;
     this._volcanoGlow    = null;
     this._mpDoorPivot    = null;
     this._mpDoorAngle    = 0;
@@ -74,6 +76,7 @@ export class HomeScene {
     this._buildMyPageHouse();
     this._buildEndlessVolcano();
     this._buildPetShop();
+    this._buildStoneShop();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -398,6 +401,81 @@ export class HomeScene {
     }
   }
 
+  // ─── 石売り場（洞窟の中に人）──────────────────────────────
+  _buildStoneShop() {
+    const POS = new THREE.Vector3(-9, 0, 9);
+    this._stoneShopPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.atan2(POS.x, POS.z); // 開口部を中央へ向ける
+
+    const rockM  = new THREE.MeshStandardMaterial({ color: 0x6b6258, roughness: 1.0 });
+    const rockDk = new THREE.MeshStandardMaterial({ color: 0x3e3933, roughness: 1.0 });
+    const darkM  = new THREE.MeshStandardMaterial({ color: 0x14110e, roughness: 1.0 }); // 洞窟内の闇
+
+    // 洞窟のドーム（半球の岩）
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(3.0, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), rockM);
+    dome.position.y = 0;
+    dome.scale.set(1, 1.1, 1.15);
+    g.add(dome);
+    // 入口の闇（前面を黒くくり抜いた風）
+    const mouth = new THREE.Mesh(new THREE.SphereGeometry(1.7, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), darkM);
+    mouth.position.set(0, 0, 1.5);
+    mouth.scale.set(1, 1.0, 0.6);
+    g.add(mouth);
+    // 岩のゴツゴツ
+    for (let i = 0; i < 10; i++) {
+      const s = 0.4 + Math.random() * 0.7;
+      const a = Math.random() * Math.PI * 2;
+      const rk = new THREE.Mesh(new THREE.IcosahedronGeometry(s, 0), Math.random() > 0.5 ? rockM : rockDk);
+      rk.position.set(Math.sin(a) * (2.4 + Math.random()), s * 0.4, Math.cos(a) * (2.4 + Math.random()) - 0.5);
+      rk.rotation.set(Math.random(), Math.random(), Math.random());
+      g.add(rk);
+    }
+
+    // 中にいる人（石屋のおじさん）
+    const person = new THREE.Group();
+    person.position.set(0, 0, 1.0);
+    const skin  = new THREE.MeshStandardMaterial({ color: 0xd8a878, roughness: 0.8 });
+    const cloth = new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.85 });
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), cloth);
+    torso.position.y = 0.95; person.add(torso);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.32, 0.3), skin);
+    head.position.y = 1.42; person.add(head);
+    const hairM = new THREE.MeshStandardMaterial({ color: 0x3a2a1a, roughness: 1.0 });
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.1, 0.32), hairM);
+    hair.position.y = 1.58; person.add(hair);
+    for (const sx of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.5, 0.15), cloth);
+      arm.position.set(sx * 0.33, 0.92, 0.02); person.add(arm);
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.55, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x3a3a40, roughness: 0.9 }));
+      leg.position.set(sx * 0.13, 0.3, 0); person.add(leg);
+    }
+    // 足元の石の山
+    const pileM = new THREE.MeshStandardMaterial({ color: 0x8a8078, roughness: 1.0 });
+    for (const [px, pz] of [[-0.5, 0.4], [0.55, 0.45], [0.0, 0.6]]) {
+      const stone = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 0), pileM);
+      stone.position.set(px, 0.16, pz); person.add(stone);
+    }
+    g.add(person);
+
+    // ランプ（洞窟内の灯り）
+    const glow = new THREE.PointLight(0xffb060, 1.6, 8);
+    glow.position.set(0, 1.6, 1.2);
+    g.add(glow);
+
+    // 看板
+    const sign = this._makeTextSprite('石売り場');
+    sign.position.set(0, 3.5, 1.2);
+    sign.scale.set(3.0, 0.84, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
   _buildPlayer() {
     const h = buildHumanoid(getPlayerOutfit());
     h.root.position.set(0, 0, 0.5);
@@ -503,6 +581,7 @@ export class HomeScene {
     this.nearMyPage     = this._mypagePos     ? p.distanceTo(this._mypagePos)     < 5.5 : false;
     this.nearEndless    = this._endlessPos    ? p.distanceTo(this._endlessPos)    < 5.5 : false;
     this.nearPetShop    = this._petShopPos    ? p.distanceTo(this._petShopPos)    < 5.5 : false;
+    this.nearStoneShop  = this._stoneShopPos  ? p.distanceTo(this._stoneShopPos)  < 5.5 : false;
 
     // マイページの家のドア開閉（近づくと勝手に開く）
     if (this._mpDoorPivot) {
