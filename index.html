@@ -243,18 +243,20 @@
     }
     .home-btn-shop:active { transform: translateY(5px); box-shadow: 0 2px 0 #0d47a1; }
 
-    /* ホーム画面 コイン表示 */
+    /* ホーム画面 コイン・素材表示 */
     .home-coins {
       position: absolute; top: 18px; left: 18px; z-index: 10;
-      display: flex; align-items: center; gap: 6px;
-      background: rgba(255,255,255,0.80); border-radius: 20px;
-      padding: 7px 14px 7px 10px;
-      font-size: 20px; font-weight: bold; color: #333;
+      display: flex; flex-direction: column; gap: 4px;
+      background: rgba(255,255,255,0.80); border-radius: 16px;
+      padding: 8px 14px;
+      font-size: 18px; font-weight: bold; color: #333;
       box-shadow: 0 2px 12px rgba(0,0,0,0.12);
       border: 1px solid rgba(200,180,80,0.35);
       backdrop-filter: blur(4px);
     }
-    .home-coins .coin-emoji { font-size: 20px; line-height: 1; }
+    .home-stat { display: flex; align-items: center; gap: 6px; }
+    .home-stat .coin-emoji { font-size: 19px; line-height: 1; }
+    .home-stat .ore-icon { width: 19px; height: 19px; object-fit: contain; vertical-align: middle; }
 
     /* ===== Home 近接アクションボタン ===== */
     #home-proximity-wrap {
@@ -1086,10 +1088,11 @@
   <div id="screen-home">
     <!-- 3Dシーン -->
     <canvas id="home-canvas"></canvas>
-    <!-- コイン表示 -->
+    <!-- コイン・素材表示 -->
     <div class="home-coins">
-      <span class="coin-emoji">🪙</span>
-      <span id="home-coin-display">0</span>
+      <div class="home-stat"><span class="coin-emoji">🪙</span><span id="home-coin-display">0</span></div>
+      <div class="home-stat"><span class="stone-icon"></span><span id="home-stone-display">0</span></div>
+      <div class="home-stat"><img class="ore-icon" src="item/azpedect.png" alt="鉄の鉱石"><span id="home-ore-display">0</span></div>
     </div>
     <!-- タイトルロゴ -->
     <div class="home-logo">

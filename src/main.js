@@ -108,6 +108,22 @@ function updateCoinDisplay() {
   if (el3) el3.textContent = c;
 }
 
+// ─── 素材（古びた石・鉄の鉱石）の累計 ─────────────────────────
+function getStoneTotal() { return parseInt(localStorage.getItem('dz_stone') || '0', 10); }
+function getOreTotal()   { return parseInt(localStorage.getItem('dz_ore')   || '0', 10); }
+function addMaterials(drops) {
+  if (!drops) return;
+  localStorage.setItem('dz_stone', String(getStoneTotal() + (drops.stone || 0)));
+  localStorage.setItem('dz_ore',   String(getOreTotal()   + (drops.ore   || 0)));
+  updateMaterialDisplay();
+}
+function updateMaterialDisplay() {
+  const s = document.getElementById('home-stone-display');
+  const o = document.getElementById('home-ore-display');
+  if (s) s.textContent = getStoneTotal();
+  if (o) o.textContent = getOreTotal();
+}
+
 // ─── 特殊技の定義 ──────────────────────────────────────────
 const SKILLS = [
   { id: 'dash',         name: 'ダッシュ' },
@@ -254,6 +270,8 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_training_level');
   localStorage.removeItem('dz_enhance');
   localStorage.removeItem('dz_player_name');
+  localStorage.removeItem('dz_stone');
+  localStorage.removeItem('dz_ore');
   homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
@@ -261,6 +279,7 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   forgeWeapon = null;
   stopTraining();
   updateCoinDisplay();
+  updateMaterialDisplay();
   refreshShopButtons();
   refreshSkillButtons();
   updatePotionBtn();
@@ -910,6 +929,7 @@ game.zombies.onCleared = () => {
   } else {
     localStorage.removeItem('dz_next_stage');
   }
+  addMaterials(game.zombies.drops); // 集めた素材を累計に加算
   updatePotionBtn();
   screens.showClear(game.zombies.drops, currentStage);
 };
@@ -1331,6 +1351,7 @@ function showHome() {
   hideShop();
   screens.hideAll();
   updateCoinDisplay();
+  updateMaterialDisplay();
   updatePotionBtn();
   homeScene.setPlayerName(getPlayerName()); // 頭上の名前を反映
   homeScene.start();
@@ -1454,6 +1475,7 @@ function loop(now) {
         endlessCounterEl.classList.add('hidden');
         _showEndlessOver(game.zombies.endlessCount);
       } else {
+        addMaterials(game.zombies.drops); // 倒れても集めた素材は手に入る
         screens.showOver(game.zombies.drops);
       }
     }
@@ -1503,6 +1525,7 @@ if (window.visualViewport) {
 // ─── 起動 ─────────────────────────────────────────────────
 document.getElementById('loading').style.display = 'none';
 updateCoinDisplay();
+updateMaterialDisplay();
 homeScene.setPlayerName(getPlayerName()); // 保存済みの名前を頭上に反映
 homeScene.start();
 rafId = requestAnimationFrame(loop);
