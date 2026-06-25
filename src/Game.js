@@ -15,6 +15,7 @@ import { buildWhiteWorldBiome } from './WhiteWorldBiome.js';
 import { Player } from './Player.js';
 import { ZombieManager } from './ZombieManager.js';
 import { Pet } from './Pet.js';
+import { Robot } from './Robot.js';
 import { COLORS, PLAYER } from './core/Constants.js';
 
 export class Game {
@@ -54,6 +55,7 @@ export class Game {
 
     this.zombies = new ZombieManager(this.scene);
     this.pet = null;
+    this.robot = null;
 
     this._camTarget = new THREE.Vector3();
     this._updateCamera(1, true);
@@ -100,6 +102,11 @@ export class Game {
       } else {
         this.pet = null;
       }
+    }
+
+    // 特殊ロボット更新（無敵＝ゾンビの標的にはしない）
+    if (this.robot && this.robot.alive) {
+      this.robot.update(dt, this.player, this.zombies.zombies, () => this.zombies.recordKill());
     }
 
     const dmg = this.zombies.update(dt, this.player, targets);
@@ -309,6 +316,15 @@ export class Game {
     const p = this.player.root.position;
     const pos = new THREE.Vector3(p.x + 1.3, 0, p.z + 1.3);
     this.pet = new Pet(this.scene, pos, type);
+  }
+
+  // バトル開始時に特殊ロボットを出す（type が null なら出さない）
+  spawnRobot(type) {
+    if (this.robot) { this.robot.dispose(); this.robot = null; }
+    if (!type) return;
+    const p = this.player.root.position;
+    const pos = new THREE.Vector3(p.x - 1.3, 0, p.z + 1.3);
+    this.robot = new Robot(this.scene, pos, type);
   }
 
   _clearStageGroup() {

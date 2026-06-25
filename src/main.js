@@ -18,6 +18,7 @@ import { Stage7Opening }  from './ui/Stage7Opening.js';
 import { GenericOpening } from './ui/GenericOpening.js';
 import { BossChallenge } from './ui/BossChallenge.js';
 import { rollPet, petRarity, PET_DEF } from './Pet.js';
+import { ROBOT_DEF, ROBOT_ORDER } from './Robot.js';
 
 const STATE = {
   HOME:           'home',
@@ -82,6 +83,7 @@ const homeEl      = document.getElementById('screen-home');
 const shopEl      = document.getElementById('screen-shop');
 const shopMenuEl  = document.getElementById('screen-shop-menu');
 const shopSkillEl = document.getElementById('screen-shop-skill');
+const robotShopEl = document.getElementById('screen-shop-robot');
 const opChoiceEl  = document.getElementById('screen-op-choice');
 
 // ─── コインシステム ────────────────────────────────────────
@@ -219,6 +221,14 @@ document.getElementById('btn-shop-sword').addEventListener('click', () => {
 document.getElementById('btn-shop-skill').addEventListener('click', () => {
   hideShopMenu();
   showSkillShop();
+});
+document.getElementById('btn-shop-robot').addEventListener('click', () => {
+  hideShopMenu();
+  showRobotShop();
+});
+document.getElementById('btn-shoprobot-close').addEventListener('click', () => {
+  robotShopEl.classList.add('hidden');
+  showShopMenu();
 });
 
 // 特殊技の購入
@@ -615,6 +625,76 @@ petshopSwapBtn.addEventListener('click', () => {
 document.getElementById('petshop-close').addEventListener('click', () => {
   petshopOverlay.classList.add('hidden');
 });
+
+// ─── 特殊ロボット（ショップで購入・1体装備）──────────────────
+const ROBOT_KEY = 'dz_robot';
+const ROBOT_OWNED_KEY = 'dz_robots_owned';
+const ROBOT_DESC = {
+  drone:    '空に浮き、7m以内の敵にミサイル（4〜5発で撃破）',
+  smallbot: '走って殴る（3発で撃破）',
+  humanoid: '剣で一撃必殺。10.8m以内で「近くにいるよ」と警告',
+  lion:     '走って噛みつく（1〜2発で撃破）',
+};
+function getActiveRobot() { return localStorage.getItem(ROBOT_KEY) || null; }
+function setActiveRobot(type) { localStorage.setItem(ROBOT_KEY, type); }
+function getOwnedRobots() {
+  try { return JSON.parse(localStorage.getItem(ROBOT_OWNED_KEY) || '[]'); } catch { return []; }
+}
+function addOwnedRobot(type) {
+  const owned = getOwnedRobots();
+  if (!owned.includes(type)) { owned.push(type); localStorage.setItem(ROBOT_OWNED_KEY, JSON.stringify(owned)); }
+}
+
+const robotShopItemsEl = document.getElementById('robot-shop-items');
+const robotShopCoinEl  = document.getElementById('shoprobot-coin-display');
+
+function showRobotShop() {
+  _renderRobotShop();
+  robotShopEl.classList.remove('hidden');
+}
+
+function _renderRobotShop() {
+  const coins  = getCoins();
+  const owned  = getOwnedRobots();
+  const active = getActiveRobot();
+  robotShopCoinEl.textContent = coins;
+  robotShopItemsEl.innerHTML = '';
+
+  ROBOT_ORDER.forEach(id => {
+    const d = ROBOT_DEF[id];
+    const isOwned = owned.includes(id);
+    const isActive = id === active;
+
+    const row = document.createElement('div');
+    row.className = 'shop-item';
+    row.innerHTML =
+      `<div class="robot-emoji">${d.emoji}</div>` +
+      `<div class="shop-item-info">` +
+        `<div class="shop-item-name">${d.name}</div>` +
+        `<div class="shop-item-price">🪙 ${d.cost}コイン</div>` +
+        `<div class="shop-item-desc" style="font-size:12px;color:rgba(255,255,255,0.55);margin-top:3px;">${ROBOT_DESC[id]}</div>` +
+      `</div>`;
+
+    const btn = document.createElement('button');
+    if (isActive) {
+      btn.className = 'shop-buy-btn equipped'; btn.textContent = '装備中'; btn.disabled = true;
+    } else if (isOwned) {
+      btn.className = 'shop-buy-btn equip'; btn.textContent = '装備する';
+      btn.addEventListener('click', () => { setActiveRobot(id); _renderRobotShop(); });
+    } else {
+      btn.className = 'shop-buy-btn'; btn.textContent = '購入する'; btn.disabled = coins < d.cost;
+      btn.addEventListener('click', () => {
+        if (getCoins() < d.cost) return;
+        spendCoins(d.cost);
+        addOwnedRobot(id);
+        setActiveRobot(id); // 買ったら自動装備
+        _renderRobotShop();
+      });
+    }
+    row.appendChild(btn);
+    robotShopItemsEl.appendChild(row);
+  });
+}
 
 // ─── 修行システム ─────────────────────────────────────────
 const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
@@ -1299,6 +1379,7 @@ function loop(now) {
   // バトル開始の瞬間（PLAYINGに入った最初のフレーム）にペットを出す
   if (state === STATE.PLAYING && _prevState !== STATE.PLAYING) {
     game.spawnPet(getActivePet());
+    game.spawnRobot(getActiveRobot());
   }
   _prevState = state;
 
