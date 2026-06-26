@@ -1431,7 +1431,7 @@ function applyWeaponBonuses() {
   game.player.setWeapon(wt);
   game.player.setTrainingBonus(getTrainingBonus());
   game.player.setEnhanceBonus(getTotalEnhanceBonus(wt)); // 鍛冶屋＋ダイヤ強化
-  game.player.sword.enchant = getSwordEnchant(wt);        // 剣エンチャント（炎/リーフ/毒）
+  game.player.sword.setEnchant(getSwordEnchant(wt));      // 剣エンチャント（炎/リーフ/毒）＋オーラ表示
 }
 
 // ─── 現在のステージをリトライ（ステージを維持して再挑戦） ──

@@ -200,9 +200,99 @@ export class Sword {
 
   // ─── クリーンアップ ──────────────────────────────────────
   dispose() {
+    this._clearEnchantAura();
     if (this.mesh)      { this.armR.remove(this.mesh);      this.mesh      = null; }
     if (this._leftSword){ this.armL.remove(this._leftSword); this._leftSword = null; }
     this.armR.rotation.x = this.restRot;
+  }
+
+  // ─── 剣エンチャントの見た目（炎/リーフ/毒のオーラ）─────────
+  setEnchant(type) {
+    this.enchant = type || null;
+    this._clearEnchantAura();
+    if (!this.enchant || !this.mesh) return;
+    this._buildEnchantAura(this.enchant);
+  }
+
+  _clearEnchantAura() {
+    this._enchParticles = [];
+    if (this._enchAura) {
+      this._enchAura.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) { Array.isArray(o.material) ? o.material.forEach(m => m.dispose()) : o.material.dispose(); }
+      });
+      if (this._enchAura.parent) this._enchAura.parent.remove(this._enchAura);
+      this._enchAura = null;
+    }
+  }
+
+  _buildEnchantAura(type) {
+    const g = new THREE.Group();
+    g.position.set(0, 0.38, 0); // 刃の中ほど
+    const COLS = {
+      fire:   { aura: 0xff3300, emis: 0xff5a1e },
+      leaf:   { aura: 0x33dd44, emis: 0x12aa22 },
+      poison: { aura: 0xaa44dd, emis: 0x8e24aa },
+    };
+    const c = COLS[type] || COLS.fire;
+
+    // 刃を包むオーラ（縦長の半透明シリンダー）
+    const aura = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.10, 0.95, 10, 1, true),
+      new THREE.MeshStandardMaterial({
+        color: c.aura, emissive: c.emis, emissiveIntensity: 1.6,
+        transparent: true, opacity: 0.4, side: THREE.DoubleSide,
+      }),
+    );
+    g.add(aura);
+    this._enchAuraCore = aura;
+
+    this._enchParticles = [];
+    if (type === 'fire') {
+      // 真ん中に火花
+      for (let i = 0; i < 6; i++) {
+        const sp = new THREE.Mesh(new THREE.SphereGeometry(0.03, 5, 4),
+          new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0xff8800, emissiveIntensity: 2.2 }));
+        g.add(sp);
+        this._enchParticles.push({ mesh: sp, base: Math.random() * Math.PI * 2 });
+      }
+    } else if (type === 'poison') {
+      // 上から紫の小さいシャボン玉
+      for (let i = 0; i < 6; i++) {
+        const b = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5),
+          new THREE.MeshStandardMaterial({ color: 0xcc88ff, emissive: 0x8e24aa, emissiveIntensity: 1.2, transparent: true, opacity: 0.75 }));
+        g.add(b);
+        this._enchParticles.push({ mesh: b, y: Math.random() * 0.9, x: (Math.random() - 0.5) * 0.2, z: (Math.random() - 0.5) * 0.2, spd: 0.4 + Math.random() * 0.5 });
+      }
+    }
+
+    this.mesh.add(g);
+    this._enchAura = g;
+    this._enchT = 0;
+  }
+
+  _updateEnchant(dt) {
+    if (!this._enchAura) return;
+    this._enchT += dt;
+    const t = this._enchT;
+    if (this._enchAuraCore) {
+      this._enchAuraCore.material.opacity = 0.3 + Math.sin(t * 8) * 0.15;
+      this._enchAuraCore.rotation.y += dt * 2;
+    }
+    if (this.enchant === 'fire') {
+      for (const p of this._enchParticles) {
+        const a = p.base + t * 10;
+        p.mesh.position.set(Math.sin(a) * 0.05, ((t * 1.5 + p.base) % 1) * 0.6 - 0.1, Math.cos(a) * 0.05);
+        p.mesh.material.emissiveIntensity = 1.5 + Math.sin(t * 20 + p.base) * 0.8;
+      }
+    } else if (this.enchant === 'poison') {
+      for (const p of this._enchParticles) {
+        p.y += p.spd * dt;
+        if (p.y > 0.9) p.y = -0.1;
+        p.mesh.position.set(p.x, p.y - 0.4, p.z);
+        p.mesh.material.opacity = 0.4 + Math.sin(t * 4 + p.y * 6) * 0.3;
+      }
+    }
   }
 
   // ─── 攻撃開始 ────────────────────────────────────────────
@@ -242,6 +332,7 @@ export class Sword {
 
   // ─── 毎フレーム更新（true = ヒット判定すべきフレーム） ───
   update(dt) {
+    this._updateEnchant(dt); // エンチャントオーラのアニメ
     if (this.cooldown > 0) this.cooldown -= dt;
     if (!this.swinging)    return false;
 
