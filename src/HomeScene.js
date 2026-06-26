@@ -36,6 +36,7 @@ export class HomeScene {
     this.nearEndless     = false;
     this.nearPetShop     = false;
     this.nearStoneShop   = false;
+    this.nearEnchant     = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
@@ -44,6 +45,7 @@ export class HomeScene {
     this._endlessPos     = null;
     this._petShopPos     = null;
     this._stoneShopPos   = null;
+    this._enchantPos     = null;
     this._volcanoGlow    = null;
     this._mpDoorPivot    = null;
     this._mpDoorAngle    = 0;
@@ -77,6 +79,7 @@ export class HomeScene {
     this._buildEndlessVolcano();
     this._buildPetShop();
     this._buildStoneShop();
+    this._buildEnchantShop();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -476,6 +479,86 @@ export class HomeScene {
     this.scene.add(g);
   }
 
+  // ─── エンチャント店（紫の屋根・灰色の壁・窓）──────────────────
+  _buildEnchantShop() {
+    const POS = new THREE.Vector3(9, 0, 9);
+    this._enchantPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.atan2(POS.x, POS.z); // 正面を中央へ
+
+    const wallM   = new THREE.MeshStandardMaterial({ color: 0x9e9e9e, roughness: 0.9 });   // 灰色の壁
+    const wallDk  = new THREE.MeshStandardMaterial({ color: 0x6f6f6f, roughness: 0.95 });
+    const roofM   = new THREE.MeshStandardMaterial({ color: 0x7e3ff2, roughness: 0.7 });    // 紫の屋根
+    const roofDk  = new THREE.MeshStandardMaterial({ color: 0x5b27c4, roughness: 0.75 });
+    const glassM  = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.7, emissive: 0x224488, emissiveIntensity: 0.3 });
+    const frameM  = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.8 });
+
+    // 本体（灰色の壁）
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(3.6, 2.6, 3.0), wallM);
+    wall.position.set(0, 1.3, 0);
+    g.add(wall);
+    // 土台
+    const base = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.3, 3.2), wallDk);
+    base.position.set(0, 0.15, 0);
+    g.add(base);
+
+    // 紫の三角屋根
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.18, 2.1), roofM);
+    roofL.position.set(0, 3.05, -0.95); roofL.rotation.z = 0.5;
+    g.add(roofL);
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.18, 2.1), roofM);
+    roofR.position.set(0, 3.05, 0.95); roofR.rotation.z = -0.5;
+    g.add(roofR);
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.2, 0.2), roofDk);
+    ridge.position.set(0, 3.72, 0);
+    g.add(ridge);
+    // 妻壁（三角の埋め）
+    for (const sx of [-1.8, 1.8]) {
+      const gable = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 1.0, 1.5, 3), roofM);
+      gable.position.set(sx, 3.1, 0); gable.rotation.z = Math.PI / 2; gable.scale.z = 1.0;
+      g.add(gable);
+    }
+
+    // 窓（前面に2つ、ガラス＋枠）
+    for (const wx of [-0.85, 0.85]) {
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.1), frameM);
+      frame.position.set(wx, 1.5, 1.52);
+      g.add(frame);
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.78, 0.06), glassM);
+      glass.position.set(wx, 1.5, 1.56);
+      g.add(glass);
+      // 窓の十字桟
+      const barV = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.82, 0.08), frameM);
+      barV.position.set(wx, 1.5, 1.58); g.add(barV);
+      const barH = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.06, 0.08), frameM);
+      barH.position.set(wx, 1.5, 1.58); g.add(barH);
+    }
+    // ドア
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.5, 0.1), new THREE.MeshStandardMaterial({ color: 0x4a2f6a, roughness: 0.8 }));
+    door.position.set(0, 0.85, 1.52);
+    g.add(door);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), new THREE.MeshStandardMaterial({ color: 0xffd24a, metalness: 0.8, roughness: 0.3 }));
+    knob.position.set(0.3, 0.85, 1.6);
+    g.add(knob);
+
+    // 紫の魔法のきらめき（屋根の上）
+    const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.22),
+      new THREE.MeshStandardMaterial({ color: 0xb388ff, emissive: 0x7e3ff2, emissiveIntensity: 1.6, roughness: 0.2 }));
+    orb.position.set(0, 4.2, 0);
+    g.add(orb);
+
+    // 看板
+    const sign = this._makeTextSprite('エンチャント店');
+    sign.position.set(0, 2.75, 1.6);
+    sign.scale.set(3.4, 0.82, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
   _buildPlayer() {
     const h = buildHumanoid(getPlayerOutfit());
     h.root.position.set(0, 0, 0.5);
@@ -582,6 +665,7 @@ export class HomeScene {
     this.nearEndless    = this._endlessPos    ? p.distanceTo(this._endlessPos)    < 5.5 : false;
     this.nearPetShop    = this._petShopPos    ? p.distanceTo(this._petShopPos)    < 5.5 : false;
     this.nearStoneShop  = this._stoneShopPos  ? p.distanceTo(this._stoneShopPos)  < 5.5 : false;
+    this.nearEnchant    = this._enchantPos    ? p.distanceTo(this._enchantPos)    < 5.5 : false;
 
     // マイページの家のドア開閉（近づくと勝手に開く）
     if (this._mpDoorPivot) {

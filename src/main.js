@@ -115,20 +115,43 @@ function getDiamondTotal() { return parseInt(localStorage.getItem('dz_diamond') 
 function setStoneTotal(n)   { localStorage.setItem('dz_stone',   String(Math.max(0, n))); }
 function setOreTotal(n)     { localStorage.setItem('dz_ore',     String(Math.max(0, n))); }
 function setDiamondTotal(n) { localStorage.setItem('dz_diamond', String(Math.max(0, n))); }
+function getMagicTotal()   { return parseInt(localStorage.getItem('dz_magicstone') || '0', 10); }
+function setMagicTotal(n)   { localStorage.setItem('dz_magicstone', String(Math.max(0, n))); }
 function addMaterials(drops) {
   if (!drops) return;
   setStoneTotal(getStoneTotal() + (drops.stone || 0));
   setOreTotal(getOreTotal()   + (drops.ore   || 0));
+  setMagicTotal(getMagicTotal() + (drops.magic || 0));
   updateMaterialDisplay();
 }
 function updateMaterialDisplay() {
   const s = document.getElementById('home-stone-display');
   const o = document.getElementById('home-ore-display');
   const d = document.getElementById('home-diamond-display');
+  const m = document.getElementById('home-magic-display');
   if (s) s.textContent = getStoneTotal();
   if (o) o.textContent = getOreTotal();
   if (d) d.textContent = getDiamondTotal();
+  if (m) m.textContent = getMagicTotal();
 }
+
+// ─── エンチャント関連アイテムの永続化 ─────────────────────────
+const ENCH_TYPES = ['fire', 'leaf', 'poison'];
+const ENCH_INFO = {
+  fire:   { name: '炎',     emoji: '🔥', desc: '30%で炎上→攻撃力-3.5、5秒後に灰にして倒す' },
+  leaf:   { name: 'リーフ', emoji: '🌿', desc: '30%で草の針3本、3秒間固める' },
+  poison: { name: '毒',     emoji: '☠️', desc: '25%で緑のオーラ、10秒間 毎秒2ダメージ' },
+};
+function _getMap(key)   { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
+function _setMap(key,v) { localStorage.setItem(key, JSON.stringify(v)); }
+function getEssence(t)   { return _getMap('dz_essence')[t]   ?? 0; }
+function getEnchStone(t) { return _getMap('dz_enchstone')[t] ?? 0; }
+function addEssence(t, n) { const m = _getMap('dz_essence');   m[t] = (m[t] ?? 0) + n; _setMap('dz_essence', m); }
+function addEnchStone(t, n){ const m = _getMap('dz_enchstone'); m[t] = (m[t] ?? 0) + n; _setMap('dz_enchstone', m); }
+function totalEnchStones() { return ENCH_TYPES.reduce((s, t) => s + getEnchStone(t), 0); }
+// 剣ごとのエンチャント（1つだけ・上書き）
+function getSwordEnchant(wt)   { return _getMap('dz_sword_enchant')[wt] ?? null; }
+function setSwordEnchant(wt, e){ const m = _getMap('dz_sword_enchant'); m[wt] = e; _setMap('dz_sword_enchant', m); }
 
 // ─── 特殊技の定義 ──────────────────────────────────────────
 const SKILLS = [
@@ -282,6 +305,10 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_ore');
   localStorage.removeItem('dz_diamond');
   localStorage.removeItem('dz_diamond_enhance');
+  localStorage.removeItem('dz_magicstone');
+  localStorage.removeItem('dz_essence');
+  localStorage.removeItem('dz_enchstone');
+  localStorage.removeItem('dz_sword_enchant');
   homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
@@ -371,6 +398,8 @@ const endlessEnterBtn = document.getElementById('btn-home-endless-enter');
 const petshopEnterBtn = document.getElementById('btn-home-petshop-enter');
 const stoneshopEnterBtn = document.getElementById('btn-home-stoneshop-enter');
 const sellgemEnterBtn   = document.getElementById('btn-home-sellgem-enter');
+const enchantEnterBtn   = document.getElementById('btn-home-enchant-enter');
+const swordenchEnterBtn = document.getElementById('btn-home-swordench-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -384,6 +413,8 @@ trainStopBtn.addEventListener('click',  () => { stopTraining(); });
 endlessEnterBtn.addEventListener('click', () => { startEndlessMode(); });
 stoneshopEnterBtn.addEventListener('click', () => { openStoneShop(); });
 sellgemEnterBtn.addEventListener('click', () => { openSellGem(); });
+enchantEnterBtn.addEventListener('click', () => { openEnchantShop(); });
+swordenchEnterBtn.addEventListener('click', () => { openSwordEnch(); });
 petshopEnterBtn.addEventListener('click', () => { openPetShop(); });
 
 // ─── マイページ（自分の名前変更）──────────────────────────────
@@ -844,6 +875,138 @@ document.getElementById('btn-shop-gemforge').addEventListener('click', () => {
   openGemForge();
 });
 
+// ─── エンチャント店（エッセンス購入＋魔法の石に付与）───────────
+const enchantOverlay = document.getElementById('enchant-overlay');
+const enchantCounts  = document.getElementById('enchant-counts');
+const enchantBuyList = document.getElementById('enchant-buy-list');
+const enchantMakeList = document.getElementById('enchant-make-list');
+
+function _refreshEnchantShop() {
+  enchantCounts.innerHTML =
+    `🔮 魔法の石：<b>${getMagicTotal()}</b>　／　💎 ダイヤ：<b>${getDiamondTotal()}</b><br>` +
+    ENCH_TYPES.map(t => `${ENCH_INFO[t].emoji}${ENCH_INFO[t].name}: エッセンス${getEssence(t)}・石${getEnchStone(t)}`).join('　');
+
+  // 買う（ダイヤ1個でエッセンス）
+  enchantBuyList.innerHTML = '';
+  ENCH_TYPES.forEach(t => {
+    const info = ENCH_INFO[t];
+    const row = document.createElement('div');
+    row.className = 'ench-row';
+    row.innerHTML = `<div class="ench-emoji">${info.emoji}</div>` +
+      `<div class="ench-info"><div class="ench-name">${info.name}　ダイヤ1個</div><div class="ench-sub">${info.desc}</div></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'ench-act'; btn.textContent = '買う';
+    btn.disabled = getDiamondTotal() < 1;
+    btn.addEventListener('click', () => {
+      if (getDiamondTotal() < 1) return;
+      setDiamondTotal(getDiamondTotal() - 1);
+      addEssence(t, 1);
+      updateMaterialDisplay(); _refreshEnchantShop();
+    });
+    row.appendChild(btn);
+    enchantBuyList.appendChild(row);
+  });
+
+  // 魔法の石にエンチャントをつける（魔法の石1＋エッセンス1 → エンチャント石1）
+  enchantMakeList.innerHTML = '';
+  ENCH_TYPES.forEach(t => {
+    const info = ENCH_INFO[t];
+    const row = document.createElement('div');
+    row.className = 'ench-row';
+    row.innerHTML = `<div class="ench-emoji">🔮${info.emoji}</div>` +
+      `<div class="ench-info"><div class="ench-name">${info.name}エンチャントの石を作る</div><div class="ench-sub">魔法の石×1 ＋ ${info.name}エッセンス×1</div></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'ench-act'; btn.textContent = 'エンチャントをつける';
+    btn.disabled = getMagicTotal() < 1 || getEssence(t) < 1;
+    btn.addEventListener('click', () => {
+      if (getMagicTotal() < 1 || getEssence(t) < 1) return;
+      setMagicTotal(getMagicTotal() - 1);
+      addEssence(t, -1);
+      addEnchStone(t, 1);
+      _showForgeComplete2(`${info.emoji} ${info.name}エンチャントの石 完成！`);
+      updateMaterialDisplay(); _refreshEnchantShop();
+    });
+    row.appendChild(btn);
+    enchantMakeList.appendChild(row);
+  });
+}
+function openEnchantShop() {
+  _refreshEnchantShop();
+  enchantOverlay.classList.remove('hidden');
+}
+document.getElementById('enchant-close').addEventListener('click', () => {
+  enchantOverlay.classList.add('hidden');
+});
+
+// 汎用「完成」エフェクト（levelup通知を流用）
+function _showForgeComplete2(text) {
+  levelupEl.textContent = text;
+  levelupEl.style.animation = 'none';
+  void levelupEl.offsetWidth;
+  levelupEl.style.animation = 'levelupAnim 2.8s forwards';
+  levelupEl.classList.remove('hidden');
+  setTimeout(() => levelupEl.classList.add('hidden'), 3000);
+}
+
+// ─── 鍛冶屋：エンチャントの石を剣につける ─────────────────────
+const swordenchOverlay = document.getElementById('swordench-overlay');
+const swordenchCounts  = document.getElementById('swordench-counts');
+const swordenchStones  = document.getElementById('swordench-stones');
+const swordenchGrid    = document.getElementById('swordench-grid');
+let _selEnch = null; // 選択中のエンチャント種
+
+function _renderSwordEnch() {
+  const owned = getOwned();
+  swordenchCounts.innerHTML = ENCH_TYPES
+    .map(t => `${ENCH_INFO[t].emoji}${ENCH_INFO[t].name}の石: <b>${getEnchStone(t)}</b>`).join('　');
+
+  // 使うエンチャント石を選ぶ（所持しているものだけ）
+  swordenchStones.innerHTML = '';
+  const have = ENCH_TYPES.filter(t => getEnchStone(t) > 0);
+  if (_selEnch && getEnchStone(_selEnch) <= 0) _selEnch = null;
+  if (!_selEnch && have.length) _selEnch = have[0];
+  have.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'ench-act' + (t === _selEnch ? '' : '');
+    b.style.opacity = t === _selEnch ? '1' : '0.55';
+    b.style.outline = t === _selEnch ? '3px solid #6ee26e' : 'none';
+    b.textContent = `${ENCH_INFO[t].emoji} ${ENCH_INFO[t].name}（${getEnchStone(t)}）`;
+    b.addEventListener('click', () => { _selEnch = t; _renderSwordEnch(); });
+    swordenchStones.appendChild(b);
+  });
+  if (!have.length) swordenchStones.innerHTML = '<span style="color:rgba(255,255,255,0.5);font-size:13px;">エンチャントの石がありません</span>';
+
+  // 剣のグリッド
+  swordenchGrid.innerHTML = '';
+  const order = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
+  order.forEach(id => {
+    if (!owned[id] && id !== 'copper') return;
+    const cur = getSwordEnchant(id);
+    const btn = document.createElement('button');
+    btn.className = 'forge-weapon-btn';
+    const curTxt = cur ? `${ENCH_INFO[cur].emoji}${ENCH_INFO[cur].name}` : 'なし';
+    btn.innerHTML = `${WEAPON_NAMES_SHORT[id] ?? id}<div class="forge-weapon-bonus">エンチャント: ${curTxt}</div>`;
+    btn.disabled = !_selEnch;
+    btn.addEventListener('click', () => {
+      if (!_selEnch || getEnchStone(_selEnch) <= 0) return;
+      addEnchStone(_selEnch, -1);
+      setSwordEnchant(id, _selEnch);            // 1本に1つ（上書き）
+      btn.classList.add('selected');            // 緑色
+      _showForgeComplete2(`✨ ${WEAPON_NAMES_SHORT[id] ?? id} に ${ENCH_INFO[_selEnch].name}エンチャント！`);
+      setTimeout(() => _renderSwordEnch(), 350);
+    });
+    swordenchGrid.appendChild(btn);
+  });
+}
+function openSwordEnch() {
+  _selEnch = null;
+  _renderSwordEnch();
+  swordenchOverlay.classList.remove('hidden');
+}
+document.getElementById('swordench-close').addEventListener('click', () => {
+  swordenchOverlay.classList.add('hidden');
+});
+
 // ─── 修行システム ─────────────────────────────────────────
 const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
 const MAX_TRAINING_LEVEL = 10;
@@ -1268,6 +1431,7 @@ function applyWeaponBonuses() {
   game.player.setWeapon(wt);
   game.player.setTrainingBonus(getTrainingBonus());
   game.player.setEnhanceBonus(getTotalEnhanceBonus(wt)); // 鍛冶屋＋ダイヤ強化
+  game.player.sword.enchant = getSwordEnchant(wt);        // 剣エンチャント（炎/リーフ/毒）
 }
 
 // ─── 現在のステージをリトライ（ステージを維持して再挑戦） ──
@@ -1565,6 +1729,12 @@ function loop(now) {
 
     // ダイヤを売るボタン（鍛冶屋の近くでダイヤを持っているとき）
     sellgemEnterBtn.classList.toggle('hidden', !(homeScene.nearBlacksmith && getDiamondTotal() > 0));
+
+    // エンチャント店ボタン
+    enchantEnterBtn.classList.toggle('hidden', !homeScene.nearEnchant);
+
+    // 剣にエンチャントをつけるボタン（鍛冶屋の近くでエンチャントの石を持っているとき）
+    swordenchEnterBtn.classList.toggle('hidden', !(homeScene.nearBlacksmith && totalEnchStones() > 0));
 
     // 修行タイマー更新
     if (trainingActive) {

@@ -104,7 +104,7 @@ export class Zombie {
       // 攻撃レンジ内
       if (this.attackTimer <= 0 && player.alive) {
         this.attackTimer = ZOMBIE.ATTACK_COOLDOWN;
-        damage = ZOMBIE.ATTACK_DAMAGE;
+        damage = Math.max(0, ZOMBIE.ATTACK_DAMAGE - (this._burnAtkReduce || 0)); // 炎エンチャントで-3.5
         soundManager.playZombieAttack(); // ガオー + バシッ
         this._lunge();
       }

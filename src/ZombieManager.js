@@ -16,8 +16,9 @@ export class ZombieManager {
   constructor(scene) {
     this.scene   = scene;
     this.zombies = [];
-    this.drops   = { stone: 0, ore: 0 };
+    this.drops   = { stone: 0, ore: 0, magic: 0 };
     this.killed  = 0;
+    this._statusFx = [];  // エンチャント状態異常（炎/リーフ/毒）
     this.onKill    = null;
     this.onCleared = null;
     this.onBossSpawn = null;
@@ -404,6 +405,9 @@ export class ZombieManager {
       }
     }
 
+    // エンチャント状態異常（炎/リーフ/毒）更新（敵の移動後に処理して固定を効かせる）
+    this._updateStatusFx(dt);
+
     // クリア判定
     const bossOk   = !this._hasBoss   || (this._bossSpawned   && this._boss         === null);
     const purpleOk = !this._hasPurple || (this._purpleSpawned && this._purpleZombie === null);
@@ -456,7 +460,8 @@ export class ZombieManager {
       for (const z of this.zombies) {
         if (!z.alive || z.dying) continue;
         if (Math.hypot(z.position.x - px, z.position.z - pz) > aoeRange) continue;
-        if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
+        this._procEnchant(z, player.sword);
+      if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
       }
       this._hitBossIfInRange(px, pz, player, aoeRange);
       this._hitPurpleIfInRange(px, pz, player, aoeRange);
@@ -504,11 +509,14 @@ export class ZombieManager {
     }
 
     if (bestIsBoss) {
+      this._procEnchant(this._boss, player.sword);
       const dmg = BOSS.WEAPON_DAMAGE[player.sword.weaponType] ?? BOSS.WEAPON_DAMAGE.copper;
       if (this._boss.takeDamage(dmg)) soundManager.playZombieDeath();
     } else if (bestIsPurple) {
+      this._procEnchant(this._purpleZombie, player.sword);
       if (this._purpleZombie.takeDamage(player.sword.damage)) soundManager.playZombieDeath();
     } else if (bestZombie) {
+      this._procEnchant(bestZombie, player.sword);
       if (bestZombie.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
   }
@@ -537,6 +545,7 @@ export class ZombieManager {
       if (Math.hypot(dx, dz) > range) continue;
       const diff = Math.abs(normalizeAngle(Math.atan2(-dx, -dz) - facing));
       if (diff > Math.PI * 0.55) continue;
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
     this._hitBossIfInRange(px, pz, player, range);
@@ -563,6 +572,7 @@ export class ZombieManager {
     for (const z of this.zombies) {
       if (!z.alive || z.dying) continue;
       if (Math.hypot(z.position.x - px, z.position.z - pz) > hitRange) continue;
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
     this._hitBossIfInRange(px, pz, player, hitRange);
@@ -581,6 +591,7 @@ export class ZombieManager {
       if (Math.hypot(dx, dz) > range) continue;
       const diff = Math.abs(normalizeAngle(Math.atan2(-dx, -dz) - facing));
       if (diff > Math.PI * 0.50) continue;
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
     this._hitBossIfInRange(px, pz, player, range);
@@ -754,6 +765,7 @@ export class ZombieManager {
     for (const z of this.zombies) {
       if (!z.alive || z.dying) continue;
       if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
     this._hitBossIfInRange(px, pz, player, range);
@@ -789,6 +801,7 @@ export class ZombieManager {
     for (const z of this.zombies) {
       if (!z.alive || z.dying) continue;
       if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
       else this._spawnRedAuraVfx(z.position);
     }
@@ -863,6 +876,7 @@ export class ZombieManager {
       if (!z.alive || z.dying) continue;
       if (Math.hypot(z.position.x - px, z.position.z - pz) > range) continue;
       this._spawnIcePillarVfx(player.position, z.position);
+      this._procEnchant(z, player.sword);
       if (z.takeDamage(player.sword.damage)) { soundManager.playZombieDeath(); this._onKill(); }
     }
     this._hitBossIfInRange(px, pz, player, range);
@@ -1130,10 +1144,115 @@ export class ZombieManager {
       if (this.onEndlessKill) this.onEndlessKill(this._endlessCount);
       return; // エンドレスは素材ドロップなし
     }
-    const got = { stone: false, ore: false };
+    const got = { stone: false, ore: false, magic: false };
     if (Math.random() < this._stageDrop.STONE) { this.drops.stone++; got.stone = true; }
     if (Math.random() < this._stageDrop.ORE)   { this.drops.ore++;   got.ore   = true; }
+    if (Math.random() < 0.23)                   { this.drops.magic++; got.magic = true; } // 魔法の石 23%
     if (this.onKill) this.onKill({ drops: this.drops, got, remaining: this.aliveCount });
+  }
+
+  // ─── 剣エンチャント：被弾した敵に確率で状態異常を付与 ──────────
+  // sword.enchant: 'fire' | 'leaf' | 'poison' | null
+  _procEnchant(target, sword) {
+    const e = sword && sword.enchant;
+    if (!e || !target || target.dying || target.alive === false) return;
+    if (e === 'fire'   && Math.random() < 0.30) this._addStatus(target, 'fire');
+    else if (e === 'leaf'   && Math.random() < 0.30) this._addStatus(target, 'leaf');
+    else if (e === 'poison' && Math.random() < 0.25) this._addStatus(target, 'poison');
+  }
+
+  _addStatus(target, type) {
+    // 同じ種類が既にかかっていれば時間をリセット
+    const exist = this._statusFx.find(f => f.target === target && f.type === type);
+    if (exist) { exist.t = 0; return; }
+
+    const fx = { target, type, t: 0, mesh: null, x0: target.position.x, z0: target.position.z };
+
+    if (type === 'fire') {
+      fx.dur = 5;
+      fx.mesh = this._makeAura(0xff5a1e, 0xff3300, 1.4);
+      if (target._burnAtkReduce !== undefined || true) target._burnAtkReduce = 3.5; // 攻撃力-3.5
+    } else if (type === 'leaf') {
+      fx.dur = 3;
+      fx.mesh = this._makeAura(0x33cc44, 0x115522, 1.2);
+      // 草の針3本
+      fx.needles = [];
+      for (let i = 0; i < 3; i++) {
+        const n = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.5, 4),
+          new THREE.MeshStandardMaterial({ color: 0x2e7d32, emissive: 0x1b5e20, emissiveIntensity: 0.5 }));
+        this.scene.add(n); fx.needles.push(n);
+      }
+      target.frozen = true;            // 固める（Zombieは停止）
+    } else if (type === 'poison') {
+      fx.dur = 10;
+      fx.mesh = this._makeAura(0x66dd33, 0x227700, 1.5);
+    }
+    this.scene.add(fx.mesh);
+    this._statusFx.push(fx);
+  }
+
+  _makeAura(color, emissive, scale) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 8),
+      new THREE.MeshStandardMaterial({ color, emissive, emissiveIntensity: 1.4, transparent: true, opacity: 0.45 }));
+    m.scale.setScalar(scale);
+    return m;
+  }
+
+  _updateStatusFx(dt) {
+    for (let i = this._statusFx.length - 1; i >= 0; i--) {
+      const fx = this._statusFx[i];
+      const tg = fx.target;
+      // 対象が消えた → 後始末
+      if (!tg || tg.alive === false || tg.dying) {
+        if (tg) { tg.frozen = false; tg._burnAtkReduce = 0; }
+        this._disposeStatusFx(fx); this._statusFx.splice(i, 1); continue;
+      }
+      fx.t += dt;
+      const px = tg.position.x, py = (tg.root ? tg.root.position.y : 0) + 1.0, pz = tg.position.z;
+      fx.mesh.position.set(px, py, pz);
+      fx.mesh.material.opacity = 0.35 + Math.sin(fx.t * 12) * 0.12;
+
+      if (fx.type === 'poison') {
+        // 1秒に2ダメージ（hitStun/flashを起こさないよう直接HPを減らす）
+        if (typeof tg.hp === 'number') {
+          tg.hp -= 2 * dt;
+          if (tg.hp <= 0 && !tg.dying) {
+            if (tg.die) tg.die(); else if (tg.takeDamage) tg.takeDamage(999999);
+            soundManager.playZombieDeath(); this.recordKill();
+          }
+        }
+      } else if (fx.type === 'leaf') {
+        // その場に固定
+        tg.frozen = true;
+        if (tg.root) { tg.root.position.x = fx.x0; tg.root.position.z = fx.z0; }
+        for (let k = 0; k < fx.needles.length; k++) {
+          const a = (k / 3) * Math.PI * 2 + fx.t * 3;
+          fx.needles[k].position.set(px + Math.sin(a) * 0.5, py, pz + Math.cos(a) * 0.5);
+          fx.needles[k].rotation.z = a;
+        }
+      } else if (fx.type === 'fire') {
+        fx.mesh.scale.setScalar(1.4 + Math.sin(fx.t * 18) * 0.18);
+        if (fx.t >= fx.dur) {
+          // 5秒後：燃やし尽くして灰に
+          if (tg.takeDamage) { tg.takeDamage(999999); }
+          else if (tg.die) tg.die();
+          if (tg.alive === false || tg.dying) { soundManager.playZombieDeath(); this.recordKill(); }
+          tg._burnAtkReduce = 0;
+          this._disposeStatusFx(fx); this._statusFx.splice(i, 1); continue;
+        }
+      }
+
+      // 時間切れ（fire以外）
+      if (fx.type !== 'fire' && fx.t >= fx.dur) {
+        if (fx.type === 'leaf') tg.frozen = false;
+        this._disposeStatusFx(fx); this._statusFx.splice(i, 1);
+      }
+    }
+  }
+
+  _disposeStatusFx(fx) {
+    if (fx.mesh) { this.scene.remove(fx.mesh); fx.mesh.geometry.dispose(); fx.mesh.material.dispose(); }
+    if (fx.needles) for (const n of fx.needles) { this.scene.remove(n); n.geometry.dispose(); n.material.dispose(); }
   }
 
   clear() {
@@ -1151,11 +1270,13 @@ export class ZombieManager {
       p.mesh.material.dispose();
     }
     for (const m of this._meteors) this._disposeMeteor(m);
+    for (const fx of this._statusFx) this._disposeStatusFx(fx);
     this.zombies        = [];
     this._arrows        = [];
     this._particles     = [];
     this._meteors       = [];
-    this.drops          = { stone: 0, ore: 0 };
+    this._statusFx      = [];
+    this.drops          = { stone: 0, ore: 0, magic: 0 };
     this.killed         = 0;
     this._clearedFired  = false;
     this._hasBoss       = false;
