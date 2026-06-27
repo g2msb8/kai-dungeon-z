@@ -243,16 +243,12 @@
     }
     .home-btn-shop:active { transform: translateY(5px); box-shadow: 0 2px 0 #0d47a1; }
 
-    /* ホーム画面 コイン・素材表示 */
+    /* ホーム画面 コイン・素材表示（枠なし・白フチで読みやすく）*/
     .home-coins {
       position: absolute; top: 18px; left: 18px; z-index: 10;
-      display: flex; flex-direction: column; gap: 4px;
-      background: rgba(255,255,255,0.80); border-radius: 16px;
-      padding: 8px 14px;
-      font-size: 18px; font-weight: bold; color: #333;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
-      border: 1px solid rgba(200,180,80,0.35);
-      backdrop-filter: blur(4px);
+      display: flex; flex-direction: column; gap: 5px;
+      font-size: 20px; font-weight: bold; color: #1a1a1a;
+      text-shadow: 0 0 4px #fff, 0 0 9px #fff, 0 1px 2px rgba(255,255,255,0.95);
     }
     .home-stat { display: flex; align-items: center; gap: 6px; }
     .home-stat .coin-emoji { font-size: 19px; line-height: 1; }
