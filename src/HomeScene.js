@@ -37,6 +37,7 @@ export class HomeScene {
     this.nearPetShop     = false;
     this.nearStoneShop   = false;
     this.nearEnchant     = false;
+    this.nearClothShop   = false;
     this._shopPos        = null;
     this._jetPos         = null;
     this._trainingPos    = null;
@@ -46,6 +47,7 @@ export class HomeScene {
     this._petShopPos     = null;
     this._stoneShopPos   = null;
     this._enchantPos     = null;
+    this._clothShopPos   = null;
     this._volcanoGlow    = null;
     this._mpDoorPivot    = null;
     this._mpDoorAngle    = 0;
@@ -80,6 +82,7 @@ export class HomeScene {
     this._buildPetShop();
     this._buildStoneShop();
     this._buildEnchantShop();
+    this._buildClothShop();
     this._buildPlayer();
     this._buildNPCs();
   }
@@ -569,6 +572,98 @@ export class HomeScene {
     this._humanoid = h;
   }
 
+  // 洋服屋さんで着せ替えたあと、ホームの主人公を作り直す
+  rebuildPlayer() {
+    if (this._humanoid) {
+      const old = this._humanoid.root;
+      const pos = old.position.clone(), rotY = old.rotation.y, scl = old.scale.clone();
+      this.scene.remove(old);
+      old.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) { Array.isArray(o.material) ? o.material.forEach(m => m.dispose()) : o.material.dispose(); }
+      });
+      const h = buildHumanoid(getPlayerOutfit());
+      h.root.position.copy(pos); h.root.rotation.y = rotY; h.root.scale.copy(scl);
+      h.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      this.scene.add(h.root);
+      this._humanoid = h;
+      this._isSitting = false;
+    }
+  }
+
+  // ─── 洋服屋さん（水色×白のしましま壁・黄色い屋根に星）──────────
+  _buildClothShop() {
+    const POS = new THREE.Vector3(11, 0, 5);
+    this._clothShopPos = POS.clone();
+
+    const g = new THREE.Group();
+    g.position.copy(POS);
+    g.rotation.y = Math.atan2(POS.x, POS.z); // 正面を中央へ
+
+    const cyan  = new THREE.MeshStandardMaterial({ color: 0x6fd8e8, roughness: 0.85 });
+    const white = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.85 });
+    const yellow = new THREE.MeshStandardMaterial({ color: 0xffd21a, roughness: 0.7 });
+    const yellowDk = new THREE.MeshStandardMaterial({ color: 0xe0a800, roughness: 0.75 });
+    const frameM = new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.8 });
+    const glassM = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, roughness: 0.1, transparent: true, opacity: 0.7 });
+
+    // 後ろ/側面の土台壁（白）
+    const core = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.5, 3.0), white);
+    core.position.set(0, 1.25, -0.1);
+    g.add(core);
+
+    // 前面の水色×白の縦しましま
+    const STRIPES = 8, W = 3.5;
+    for (let i = 0; i < STRIPES; i++) {
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(W / STRIPES, 2.5, 0.12), i % 2 === 0 ? cyan : white);
+      sw.position.set(-W / 2 + (i + 0.5) * (W / STRIPES), 1.25, 1.45);
+      g.add(sw);
+    }
+    // 横しましま（側面も少し）
+    for (let i = 0; i < 6; i++) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(3.42, 0.4, 3.02), i % 2 === 0 ? cyan : white);
+      band.position.set(0, 0.25 + i * 0.42, -0.1);
+      band.visible = (i % 2 === 0); // 水色の帯だけ重ねてしましま感
+      g.add(band);
+    }
+
+    // 黄色い三角屋根
+    const roofL = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.18, 2.1), yellow);
+    roofL.position.set(0, 2.95, -0.95); roofL.rotation.z = 0.5;
+    g.add(roofL);
+    const roofR = new THREE.Mesh(new THREE.BoxGeometry(3.9, 0.18, 2.1), yellow);
+    roofR.position.set(0, 2.95, 0.95); roofR.rotation.z = -0.5;
+    g.add(roofR);
+    const ridge = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.2, 0.2), yellowDk);
+    ridge.position.set(0, 3.6, 0);
+    g.add(ridge);
+
+    // 屋根の上の星
+    const star = _makeStar(0xffe23a);
+    star.position.set(0, 4.2, 0);
+    star.scale.setScalar(0.5);
+    this._clothStar = star;
+    g.add(star);
+
+    // 窓
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.95, 0.1), frameM);
+    frame.position.set(-1.0, 1.5, 1.52); g.add(frame);
+    const glass = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.78, 0.06), glassM);
+    glass.position.set(-1.0, 1.5, 1.56); g.add(glass);
+    // ドア
+    const door = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.5, 0.1), new THREE.MeshStandardMaterial({ color: 0x6d4c41, roughness: 0.8 }));
+    door.position.set(0.7, 0.85, 1.52); g.add(door);
+
+    // 看板
+    const sign = this._makeTextSprite('洋服屋さん');
+    sign.position.set(0, 2.7, 1.6);
+    sign.scale.set(3.2, 0.82, 1);
+    g.add(sign);
+
+    g.traverse(o => { if (o.isMesh && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
+    this.scene.add(g);
+  }
+
   // ─── リサイズ ───────────────────────────────────────────────
   _onResize() {
     const w = window.innerWidth, h = window.innerHeight;
@@ -610,6 +705,9 @@ export class HomeScene {
 
     // 滝テクスチャスクロール
     if (this._waterfallTex) this._waterfallTex.offset.y += dt * 0.85;
+
+    // 洋服屋さんの星をくるくる回す
+    if (this._clothStar) this._clothStar.rotation.y += dt * 0.9;
 
     // 火山クレーターの灯りをゆらめかせる
     if (this._volcanoGlow) {
@@ -666,6 +764,7 @@ export class HomeScene {
     this.nearPetShop    = this._petShopPos    ? p.distanceTo(this._petShopPos)    < 5.5 : false;
     this.nearStoneShop  = this._stoneShopPos  ? p.distanceTo(this._stoneShopPos)  < 5.5 : false;
     this.nearEnchant    = this._enchantPos    ? p.distanceTo(this._enchantPos)    < 5.5 : false;
+    this.nearClothShop  = this._clothShopPos  ? p.distanceTo(this._clothShopPos)  < 5.5 : false;
 
     // マイページの家のドア開閉（近づくと勝手に開く）
     if (this._mpDoorPivot) {
@@ -1539,4 +1638,21 @@ function _lerpAngle(a, b, t) {
   while (d >  Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return a + d * t;
+}
+
+// 5つの角の星メッシュ
+function _makeStar(color) {
+  const shape = new THREE.Shape();
+  const outer = 1.0, inner = 0.45;
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = (i / 10) * Math.PI * 2 - Math.PI / 2;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+  }
+  shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.18, bevelEnabled: false });
+  geo.center();
+  const mat = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.6, roughness: 0.4, metalness: 0.3 });
+  return new THREE.Mesh(geo, mat);
 }

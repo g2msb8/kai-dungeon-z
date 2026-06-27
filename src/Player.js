@@ -34,6 +34,30 @@ export class Player {
   // インフェルノ攻撃中は無敵
   get invincible()  { return this.sword.swinging && this.sword.weaponType === 'inferno'; }
 
+  // 服装(getPlayerOutfit)を反映して体を作り直す。剣は呼び出し側で setWeapon して付け直す。
+  rebuildBody() {
+    const parent = this.root.parent;
+    const pos = this.root.position.clone();
+    const rotY = this.root.rotation.y;
+    const scl = this.root.scale.clone();
+    // 旧モデル破棄
+    if (parent) parent.remove(this.root);
+    this.root.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) { Array.isArray(o.material) ? o.material.forEach(m => m.dispose()) : o.material.dispose(); }
+    });
+    // 新モデル
+    const h = buildHumanoid(getPlayerOutfit());
+    this.humanoid = h;
+    this.root = h.root;
+    this.armR = h.parts.armR;
+    this.armL = h.parts.armL;
+    this.root.position.copy(pos);
+    this.root.rotation.y = rotY;
+    this.root.scale.copy(scl);
+    if (parent) parent.add(this.root);
+  }
+
   // 武器を切り替える（ショップ購入後にステージ開始前に呼ぶ）
   setWeapon(type) {
     const tBonus = this._trainingBonus ?? 0;

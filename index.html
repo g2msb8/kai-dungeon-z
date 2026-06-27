@@ -323,6 +323,42 @@
       background: linear-gradient(180deg, #ce93d8, #8e24aa);
       box-shadow: 0 4px 0 #6a1b9a, 0 6px 18px rgba(0,0,0,0.4);
     }
+    #btn-home-clothshop-enter {
+      background: linear-gradient(180deg, #6fd8e8, #0097a7);
+      box-shadow: 0 4px 0 #006064, 0 6px 18px rgba(0,0,0,0.4);
+    }
+
+    /* ===== 洋服屋さん（着せ替え）===== */
+    #clothshop-overlay {
+      position: fixed; inset: 0; z-index: 54;
+      height: var(--app-height, 100%);
+      background: linear-gradient(160deg, #103040, #06141c);
+      display: flex; flex-direction: column; align-items: center;
+      padding: 18px 12px calc(18px + env(safe-area-inset-bottom));
+    }
+    #clothshop-overlay.hidden { display: none; }
+    .clothshop-title { font-size: 24px; font-weight: bold; color: #b3ecff; letter-spacing: 2px; text-shadow: 0 0 14px rgba(80,200,255,0.5); margin-bottom: 6px; }
+    .clothshop-stage {
+      position: relative; width: 100%; max-width: 360px; flex: 1; min-height: 0;
+      display: flex; align-items: stretch; justify-content: center;
+    }
+    #clothshop-canvas { width: 100%; height: 100%; display: block; }
+    .cloth-zone {
+      position: absolute; left: 0; right: 0; border: none; cursor: pointer;
+      background: rgba(255,255,255,0.05);
+      color: #fff; font-size: 15px; font-weight: bold;
+      display: flex; align-items: flex-start; justify-content: center; padding-top: 8px;
+      text-shadow: 0 1px 3px #000; transition: background 0.1s;
+    }
+    .cloth-zone:active { background: rgba(110,216,232,0.25); }
+    .cloth-body { top: 0; height: 52%; border-bottom: 1px dashed rgba(255,255,255,0.25); }
+    .cloth-legs { bottom: 0; height: 48%; align-items: flex-end; padding-top: 0; padding-bottom: 8px; }
+    .clothshop-hint { font-size: 13px; color: rgba(255,255,255,0.7); margin: 8px 0; text-align: center; }
+    #clothshop-close {
+      padding: 12px 36px; font-size: 16px; font-weight: bold; color: #fff;
+      background: rgba(255,255,255,0.12); border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 12px; cursor: pointer;
+    }
     /* エンチャント店UIの行 */
     .ench-row {
       display: flex; align-items: center; gap: 12px; width: 100%; max-width: 420px;
@@ -1192,6 +1228,7 @@
       <button id="btn-home-sellgem-enter" class="home-action-btn hidden">💎 ダイヤを売る</button>
       <button id="btn-home-enchant-enter" class="home-action-btn hidden">🔮 エンチャント店に入る</button>
       <button id="btn-home-swordench-enter" class="home-action-btn hidden">✨ エンチャントをつける</button>
+      <button id="btn-home-clothshop-enter" class="home-action-btn hidden">👕 洋服屋さんに入る</button>
     </div>
     <!-- 修行中UI -->
     <div id="home-train-ui">
@@ -1266,6 +1303,18 @@
     <div class="ench-section-title">魔法の石にエンチャントをつける</div>
     <div id="enchant-make-list" style="display:flex;flex-direction:column;gap:10px;width:100%;align-items:center;"></div>
     <button class="gem-close" id="enchant-close">とじる</button>
+  </div>
+
+  <!-- 洋服屋さん（着せ替え）-->
+  <div id="clothshop-overlay" class="hidden">
+    <div class="clothshop-title">👕 洋服屋さん</div>
+    <div class="clothshop-stage">
+      <canvas id="clothshop-canvas"></canvas>
+      <button class="cloth-zone cloth-body" id="cloth-body-zone">👕 服をタップ</button>
+      <button class="cloth-zone cloth-legs" id="cloth-legs-zone">👖 ズボンをタップ</button>
+    </div>
+    <div class="clothshop-hint">タップで次の色に変わります（髪は変わりません）</div>
+    <button id="clothshop-close">とじる</button>
   </div>
 
   <!-- 鍛冶屋でエンチャントの石を剣につける -->

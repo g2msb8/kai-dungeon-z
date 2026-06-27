@@ -19,6 +19,8 @@ import { GenericOpening } from './ui/GenericOpening.js';
 import { BossChallenge } from './ui/BossChallenge.js';
 import { rollPet, petRarity, PET_DEF } from './Pet.js';
 import { ROBOT_DEF, ROBOT_ORDER } from './Robot.js';
+import { ClothShop } from './ClothShop.js';
+import { ensureOutfit, cycleOutfitBody, cycleOutfitLegs } from './PlayerSkin.js';
 
 const STATE = {
   HOME:           'home',
@@ -309,6 +311,7 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   localStorage.removeItem('dz_essence');
   localStorage.removeItem('dz_enchstone');
   localStorage.removeItem('dz_sword_enchant');
+  localStorage.removeItem('dz_outfit');
   homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
@@ -400,6 +403,7 @@ const stoneshopEnterBtn = document.getElementById('btn-home-stoneshop-enter');
 const sellgemEnterBtn   = document.getElementById('btn-home-sellgem-enter');
 const enchantEnterBtn   = document.getElementById('btn-home-enchant-enter');
 const swordenchEnterBtn = document.getElementById('btn-home-swordench-enter');
+const clothshopEnterBtn = document.getElementById('btn-home-clothshop-enter');
 const trainTimerEl   = document.getElementById('home-train-timer');
 const levelupEl      = document.getElementById('home-levelup-popup');
 const maxlevelEl     = document.getElementById('home-maxlevel-overlay');
@@ -415,6 +419,7 @@ stoneshopEnterBtn.addEventListener('click', () => { openStoneShop(); });
 sellgemEnterBtn.addEventListener('click', () => { openSellGem(); });
 enchantEnterBtn.addEventListener('click', () => { openEnchantShop(); });
 swordenchEnterBtn.addEventListener('click', () => { openSwordEnch(); });
+clothshopEnterBtn.addEventListener('click', () => { openClothShop(); });
 petshopEnterBtn.addEventListener('click', () => { openPetShop(); });
 
 // ─── マイページ（自分の名前変更）──────────────────────────────
@@ -1007,6 +1012,29 @@ document.getElementById('swordench-close').addEventListener('click', () => {
   swordenchOverlay.classList.add('hidden');
 });
 
+// ─── 洋服屋さん（着せ替え）─────────────────────────────────────
+const clothshopOverlay = document.getElementById('clothshop-overlay');
+const clothShop = new ClothShop(document.getElementById('clothshop-canvas'));
+
+function openClothShop() {
+  ensureOutfit();          // 未設定なら初期化
+  clothshopOverlay.classList.remove('hidden');
+  clothShop.rebuild();     // 現在の服装で表示
+  clothShop.open();
+}
+function closeClothShop() {
+  clothShop.close();
+  clothshopOverlay.classList.add('hidden');
+  homeScene.rebuildPlayer(); // ホームの主人公に反映
+}
+document.getElementById('cloth-body-zone').addEventListener('click', () => {
+  cycleOutfitBody(); clothShop.rebuild();
+});
+document.getElementById('cloth-legs-zone').addEventListener('click', () => {
+  cycleOutfitLegs(); clothShop.rebuild();
+});
+document.getElementById('clothshop-close').addEventListener('click', closeClothShop);
+
 // ─── 修行システム ─────────────────────────────────────────
 const TRAINING_TIMES = [3, 5, 7, 9, 11, 13, 15, 17, 19, 21]; // 各レベルの修行時間(秒)
 const MAX_TRAINING_LEVEL = 10;
@@ -1427,8 +1455,9 @@ function showBattleUI() {
 
 // 武器・修行ボーナス・強化ボーナスをまとめて適用
 function applyWeaponBonuses() {
+  game.player.rebuildBody();          // 洋服屋さんで着せ替えた服装を反映
   const wt = getBestWeapon();
-  game.player.setWeapon(wt);
+  game.player.setWeapon(wt);          // 新しい腕に剣を付け直す
   game.player.setTrainingBonus(getTrainingBonus());
   game.player.setEnhanceBonus(getTotalEnhanceBonus(wt)); // 鍛冶屋＋ダイヤ強化
   game.player.sword.setEnchant(getSwordEnchant(wt));      // 剣エンチャント（炎/リーフ/毒）＋オーラ表示
@@ -1735,6 +1764,9 @@ function loop(now) {
 
     // 剣にエンチャントをつけるボタン（鍛冶屋の近くでエンチャントの石を持っているとき）
     swordenchEnterBtn.classList.toggle('hidden', !(homeScene.nearBlacksmith && totalEnchStones() > 0));
+
+    // 洋服屋さんボタン
+    clothshopEnterBtn.classList.toggle('hidden', !homeScene.nearClothShop);
 
     // 修行タイマー更新
     if (trainingActive) {
