@@ -11,6 +11,9 @@ const DEST = {
   battle:     new THREE.Vector3(  0,  0, 12),
   petshop:    new THREE.Vector3(-4.5, 0,-13),
   volcano:    new THREE.Vector3(  9,  0, -9),
+  enchant:    new THREE.Vector3(  9,  0,  9),
+  clothshop:  new THREE.Vector3( 11,  0,  5),
+  stoneshop:  new THREE.Vector3( -9,  0,  9),
 };
 
 // 外見はプレイヤーと完全に同じ（ユーザー要件）
@@ -138,9 +141,9 @@ export class NPC {
   // ── 行動選択（行動1〜8をランダムに）──────────────────────────────
   _pickBehavior() {
     const tags = ['wait2', 'training', 'blacksmith', 'wander', 'battle', 'walkSwap', 'shop',
-                  'petShopVisit', 'volcanoVanish'];
-    const b = randInt(1, 10);
-    if (b === 10) this._pickSpeech();        // セリフ
+                  'petShopVisit', 'volcanoVanish', 'enchantVisit', 'clothVisit', 'stoneVisit'];
+    const b = randInt(1, 13);
+    if (b === 13) this._pickSpeech();        // セリフ
     else          this._startAction(tags[b - 1]);
   }
 
@@ -291,6 +294,30 @@ export class NPC {
             this._state = 'gone'; this._stateTimer = rand(10, 30);
           });
         });
+        break;
+      }
+      case 'enchantVisit': {
+        // エンチャント店へ → 0.5秒待つ → 急に消えて10〜15秒後に再出現
+        const d = DEST.enchant.clone().add(new THREE.Vector3(rand(-1.2, 1.2), 0, rand(1.5, 3.0)));
+        this._moveTo(d, () => {
+          this._wait(0.5, () => {
+            this._clearSpeech(); this._vanish();
+            this._appearCenter = true;
+            this._state = 'gone'; this._stateTimer = rand(10, 15);
+          });
+        });
+        break;
+      }
+      case 'clothVisit': {
+        // 洋服屋さんの真ん中へ → 10〜20秒立ち止まる
+        const d = DEST.clothshop.clone();
+        this._moveTo(d, () => this._wait(rand(10, 20)));
+        break;
+      }
+      case 'stoneVisit': {
+        // 石売り場の真ん中へ → 10〜20秒立ち止まる
+        const d = DEST.stoneshop.clone();
+        this._moveTo(d, () => this._wait(rand(10, 20)));
         break;
       }
       default:
