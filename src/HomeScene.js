@@ -802,6 +802,47 @@ export class HomeScene {
     }
   }
 
+  // ─── テレポート：建物の手前にプレイヤーを瞬間移動 ─────────────
+  teleportTo(key) {
+    if (!this._humanoid) return false;
+    const map = {
+      shop:       this._shopPos,
+      mypage:     this._mypagePos,
+      blacksmith: this._blacksmithPos,
+      battle:     this._jetPos,
+      training:   this._trainingPos,
+      enchant:    this._enchantPos,
+      stoneshop:  this._stoneShopPos,
+      petshop:    this._petShopPos,
+      clothshop:  this._clothShopPos,
+      volcano:    this._endlessPos,
+    };
+    const dest = map[key];
+    if (!dest) return false;
+
+    // 立ち上がり（修行中なら解除）
+    this.setSitting(false);
+
+    // 建物の中心へ向かうベクトル（部屋の中心(0,0)寄り3mに立たせて近接判定を有効化）
+    const dir = new THREE.Vector3(-dest.x, 0, -dest.z);
+    if (dir.lengthSq() > 1e-4) dir.normalize(); else dir.set(0, 0, 1);
+    const pos = this._humanoid.root.position;
+    pos.set(dest.x + dir.x * 3, 0, dest.z + dir.z * 3);
+
+    // 建物の方を向く（向いている方向 = -dir）
+    this._playerFacing = Math.atan2(dir.x, dir.z);
+    this._humanoid.root.rotation.y = this._playerFacing;
+
+    // 慣性で動き続けないよう入力をリセット
+    this._joy = { x: 0, y: 0 };
+
+    // カメラを即追従（俯瞰視点）
+    this.camera.position.set(pos.x, pos.y + 4.5, pos.z + 7.5);
+    this._camTarget.set(pos.x, pos.y + 1.4, pos.z - 1);
+    this.camera.lookAt(this._camTarget);
+    return true;
+  }
+
   // ─── テキストスプライト生成 ─────────────────────────────────
   _makeTextSprite(text) {
     const canvas = document.createElement('canvas');

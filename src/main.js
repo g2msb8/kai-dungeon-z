@@ -333,6 +333,18 @@ document.getElementById('reset-yes').addEventListener('click', () => {
   _showForgeComplete2('🗑️ データを初期設定に戻しました');
 });
 
+// ─── テレポート用ボタングリッド ───────────────────────────────
+document.getElementById('home-teleport-grid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tp-btn');
+  if (!btn || state !== STATE.HOME) return;
+  const key = btn.dataset.tp;
+  if (!homeScene.teleportTo(key)) return;
+  if (key === 'battle') {
+    // バトル戦闘機にテレポート → 0.2秒後にオープニング画面
+    setTimeout(() => { startBattleFlow(); }, 200);
+  }
+});
+
 document.getElementById('btn-cheat-coin').addEventListener('click', () => {
   addCoins(1000);
   refreshShopButtons();

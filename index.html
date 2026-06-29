@@ -264,6 +264,34 @@
     }
     #btn-home-trash:active { transform: scale(0.92); }
 
+    /* テレポート用ボタングリッド（右側・2列×5行） */
+    #home-teleport-grid {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      z-index: 11; display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 8px; pointer-events: auto;
+    }
+    .tp-btn {
+      width: 58px; height: 58px; border-radius: 14px; cursor: pointer;
+      border: 2px solid rgba(0,0,0,0.25); padding: 3px 2px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+      font-family: inherit; line-height: 1;
+    }
+    .tp-btn:active { transform: scale(0.9); }
+    .tp-emoji { font-size: 22px; line-height: 1; }
+    .tp-label { font-size: 9px; font-weight: 700; white-space: nowrap; }
+    /* 色分け */
+    .tp-shop    { background: #ff8c1a; color: #fff; }
+    .tp-mypage  { background: #1a1a1a; color: #fff; }
+    .tp-battle  { background: #e23b3b; color: #fff; }
+    .tp-forge   { background: #9aa0a6; color: #1a1a1a; }
+    .tp-train   { background: #6fd0ee; color: #0b3a4a; }
+    .tp-enchant { background: #9b59d0; color: #fff; }
+    .tp-petshop { background: #f4c9a0; color: #5a3a1a; }
+    .tp-stone   { background: #ffffff; color: #333; }
+    .tp-cloth   { background: #6fd0ee; color: #0b3a4a; }
+    .tp-volcano { background: #1a1a1a; color: #fff; }
+
     /* データ削除 確認オーバーレイ */
     #reset-confirm-overlay {
       position: fixed; inset: 0; z-index: 70;
@@ -1249,6 +1277,19 @@
     </div>
     <!-- データ削除（ゴミ箱）-->
     <button id="btn-home-trash" title="データを削除">🗑️</button>
+    <!-- テレポート用ボタングリッド（右側）-->
+    <div id="home-teleport-grid">
+      <button class="tp-btn tp-shop"    data-tp="shop"      title="ショップへ"><span class="tp-emoji">🏪</span><span class="tp-label">ショップ</span></button>
+      <button class="tp-btn tp-mypage"  data-tp="mypage"    title="マイページへ"><span class="tp-emoji">🏠</span><span class="tp-label">マイページ</span></button>
+      <button class="tp-btn tp-battle"  data-tp="battle"    title="バトルへ"><span class="tp-emoji">⚔️</span><span class="tp-label">バトル</span></button>
+      <button class="tp-btn tp-forge"   data-tp="blacksmith" title="鍛冶屋へ"><span class="tp-emoji">🔨</span><span class="tp-label">鍛冶屋</span></button>
+      <button class="tp-btn tp-train"   data-tp="training"  title="修行へ"><span class="tp-emoji">💧</span><span class="tp-label">修行</span></button>
+      <button class="tp-btn tp-enchant" data-tp="enchant"   title="エンチャント店へ"><span class="tp-emoji">🪄</span><span class="tp-label">エンチャント</span></button>
+      <button class="tp-btn tp-petshop" data-tp="petshop"   title="ペットショップへ"><span class="tp-emoji">🐾</span><span class="tp-label">ペット</span></button>
+      <button class="tp-btn tp-stone"   data-tp="stoneshop" title="石売り場へ"><span class="tp-emoji">🪨</span><span class="tp-label">石売り場</span></button>
+      <button class="tp-btn tp-cloth"   data-tp="clothshop" title="洋服屋さんへ"><span class="tp-emoji">👕</span><span class="tp-label">洋服屋</span></button>
+      <button class="tp-btn tp-volcano" data-tp="volcano"   title="火山へ"><span class="tp-emoji">🌋</span><span class="tp-label">火山</span></button>
+    </div>
     <!-- タイトルロゴ -->
     <div class="home-logo">
       ダンジョン<span class="z">Z</span>
