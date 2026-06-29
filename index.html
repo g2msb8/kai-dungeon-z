@@ -252,6 +252,43 @@
     }
     .home-stat { display: flex; align-items: center; gap: 6px; }
     .home-stat .coin-emoji { font-size: 19px; line-height: 1; }
+
+    /* データ削除（ゴミ箱）ボタン */
+    #btn-home-trash {
+      position: absolute; top: calc(16px + env(safe-area-inset-top)); right: 16px; z-index: 11;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,0.85); border: 2px solid rgba(200,70,70,0.5);
+      font-size: 23px; line-height: 1; cursor: pointer; pointer-events: auto;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #btn-home-trash:active { transform: scale(0.92); }
+
+    /* データ削除 確認オーバーレイ */
+    #reset-confirm-overlay {
+      position: fixed; inset: 0; z-index: 70;
+      height: var(--app-height, 100%);
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    #reset-confirm-overlay.hidden { display: none; }
+    .reset-confirm-box {
+      background: linear-gradient(160deg, #2a2330, #15121a);
+      border: 2px solid rgba(255,120,120,0.5); border-radius: 18px;
+      padding: 26px 24px; max-width: 360px; width: 100%; text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    }
+    .reset-confirm-msg { font-size: 21px; font-weight: bold; color: #ff8a8a; margin-bottom: 10px; }
+    .reset-confirm-sub { font-size: 13px; color: rgba(255,255,255,0.7); line-height: 1.7; margin-bottom: 22px; }
+    .reset-confirm-btns { display: flex; gap: 14px; justify-content: center; }
+    .reset-confirm-btns button {
+      flex: 1; padding: 14px 0; font-size: 17px; font-weight: bold; border: none;
+      border-radius: 12px; cursor: pointer; color: #fff;
+    }
+    #reset-yes { background: linear-gradient(180deg, #ef5350, #b71c1c); box-shadow: 0 4px 0 #7f0000; }
+    #reset-yes:active { transform: translateY(3px); box-shadow: 0 1px 0 #7f0000; }
+    #reset-no  { background: linear-gradient(180deg, #90a4ae, #546e7a); box-shadow: 0 4px 0 #37474f; }
+    #reset-no:active { transform: translateY(3px); box-shadow: 0 1px 0 #37474f; }
     .home-stat .ore-icon { width: 19px; height: 19px; object-fit: contain; vertical-align: middle; }
     .magic-icon {
       display: inline-block; width: 18px; height: 18px; border-radius: 5px;
@@ -1210,6 +1247,8 @@
       <div class="home-stat"><span class="coin-emoji">💎</span><span id="home-diamond-display">0</span></div>
       <div class="home-stat"><span class="magic-icon"></span><span id="home-magic-display">0</span></div>
     </div>
+    <!-- データ削除（ゴミ箱）-->
+    <button id="btn-home-trash" title="データを削除">🗑️</button>
     <!-- タイトルロゴ -->
     <div class="home-logo">
       ダンジョン<span class="z">Z</span>
@@ -1303,6 +1342,18 @@
     <div class="ench-section-title">魔法の石にエンチャントをつける</div>
     <div id="enchant-make-list" style="display:flex;flex-direction:column;gap:10px;width:100%;align-items:center;"></div>
     <button class="gem-close" id="enchant-close">とじる</button>
+  </div>
+
+  <!-- データ削除 確認 -->
+  <div id="reset-confirm-overlay" class="hidden">
+    <div class="reset-confirm-box">
+      <div class="reset-confirm-msg">本当にデータを削除しますか？</div>
+      <div class="reset-confirm-sub">剣・特殊技・ペット・特殊ロボット・素材・着せ替えなど、すべて初期設定に戻ります。</div>
+      <div class="reset-confirm-btns">
+        <button id="reset-yes">はい</button>
+        <button id="reset-no">いいえ</button>
+      </div>
+    </div>
   </div>
 
   <!-- 洋服屋さん（着せ替え）-->

@@ -294,24 +294,14 @@ document.querySelectorAll('.skill-buy-btn').forEach(btn => {
   });
 });
 
-document.getElementById('btn-reset-data').addEventListener('click', () => {
-  localStorage.setItem('dz_coins', '0');
-  localStorage.setItem('dz_owned', '{}');
-  localStorage.removeItem('dz_equipped');
-  localStorage.removeItem('dz_next_stage');
-  localStorage.removeItem('dz_potions');
-  localStorage.removeItem('dz_training_level');
-  localStorage.removeItem('dz_enhance');
-  localStorage.removeItem('dz_player_name');
-  localStorage.removeItem('dz_stone');
-  localStorage.removeItem('dz_ore');
-  localStorage.removeItem('dz_diamond');
-  localStorage.removeItem('dz_diamond_enhance');
-  localStorage.removeItem('dz_magicstone');
-  localStorage.removeItem('dz_essence');
-  localStorage.removeItem('dz_enchstone');
-  localStorage.removeItem('dz_sword_enchant');
-  localStorage.removeItem('dz_outfit');
+// すべてのデータを初期設定に戻す（剣・特殊技・ペット・ロボット・素材・着せ替え等すべて）
+function resetAllData() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith('dz_')) keys.push(k);
+  }
+  keys.forEach(k => localStorage.removeItem(k));
   homeScene.setPlayerName(null);
   potions = 0;
   trainingLevel = 0;
@@ -324,6 +314,23 @@ document.getElementById('btn-reset-data').addEventListener('click', () => {
   refreshSkillButtons();
   updatePotionBtn();
   updateSpecialBtn();
+  homeScene.rebuildPlayer(); // 着せ替えの初期化も反映
+}
+
+document.getElementById('btn-reset-data').addEventListener('click', resetAllData);
+
+// ホーム画面のゴミ箱ボタン → 確認ダイアログ
+const resetConfirmOverlay = document.getElementById('reset-confirm-overlay');
+document.getElementById('btn-home-trash').addEventListener('click', () => {
+  resetConfirmOverlay.classList.remove('hidden');
+});
+document.getElementById('reset-no').addEventListener('click', () => {
+  resetConfirmOverlay.classList.add('hidden'); // ホーム画面に戻る
+});
+document.getElementById('reset-yes').addEventListener('click', () => {
+  resetAllData();                              // 初期設定に戻す
+  resetConfirmOverlay.classList.add('hidden');
+  _showForgeComplete2('🗑️ データを初期設定に戻しました');
 });
 
 document.getElementById('btn-cheat-coin').addEventListener('click', () => {
