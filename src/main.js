@@ -138,11 +138,14 @@ function updateMaterialDisplay() {
 }
 
 // ─── エンチャント関連アイテムの永続化 ─────────────────────────
-const ENCH_TYPES = ['fire', 'leaf', 'poison'];
+const ENCH_TYPES = ['fire', 'leaf', 'poison', 'ice', 'money', 'curse'];
 const ENCH_INFO = {
-  fire:   { name: '炎',     emoji: '🔥', desc: '30%で炎上→攻撃力-3.5、5秒後に灰にして倒す' },
-  leaf:   { name: 'リーフ', emoji: '🌿', desc: '30%で草の針3本、3秒間固める' },
-  poison: { name: '毒',     emoji: '☠️', desc: '25%で緑のオーラ、10秒間 毎秒2ダメージ' },
+  fire:   { name: '炎',             emoji: '🔥', desc: '30%で炎上→攻撃力-3.5、5秒後に灰にして倒す' },
+  leaf:   { name: 'リーフ',         emoji: '🌿', desc: '30%で草の針3本、3秒間固める' },
+  poison: { name: '毒',             emoji: '☠️', desc: '25%で緑のオーラ、10秒間 毎秒2ダメージ' },
+  ice:    { name: 'アイス',         emoji: '❄️', desc: '40%で敵が凍りつき12秒間動けなくなる' },
+  money:  { name: 'おかねこわすぎ', emoji: '💰', desc: '35%で2倍速で接近（攻撃しない）→1.5秒後に味方になる' },
+  curse:  { name: '呪い',           emoji: '🔵', desc: '30%で紫色になり10秒間不規則移動→その後味方になる' },
 };
 function _getMap(key)   { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } }
 function _setMap(key,v) { localStorage.setItem(key, JSON.stringify(v)); }
@@ -1253,9 +1256,10 @@ function _showForgeComplete(wt) {
 }
 
 // ─── ゾンビ管理コールバック ────────────────────────────────
-game.zombies.onKill = ({ drops, remaining }) => {
+game.zombies.onKill = ({ drops, got, remaining }) => {
   hud.setDrops(drops);
   hud.setZombies(remaining);
+  if (got && got.magic) _showMagicGet();
 };
 game.zombies.onCleared = () => {
   if (state !== STATE.PLAYING) return;
@@ -1398,6 +1402,24 @@ function _showPotionGet() {
   updatePotionBtn();
 }
 
+// ─── 魔法の石ゲット通知 ──────────────────────────────────────
+function _showMagicGet() {
+  const el = document.createElement('div');
+  el.textContent = '🔮 魔法の石ゲット！';
+  Object.assign(el.style, {
+    position: 'fixed', left: '50%', top: '44%',
+    transform: 'translateX(-50%)',
+    zIndex: '22', pointerEvents: 'none',
+    fontSize: '28px', fontWeight: 'bold',
+    color: '#ffe600',
+    textShadow: '0 0 16px #ffaa00, 0 0 32px #ff6600, 0 2px 8px #000',
+    whiteSpace: 'nowrap',
+    animation: 'potionGetAnim 2.6s forwards',
+  });
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
 // ─── NPC再入場通知（ホーム左上・青い四角＋黒枠）─────────────
 let _enterNoticeWrap = null;
 function showEnterNotice(name) {
@@ -1534,8 +1556,7 @@ function startStage2Opening() {
   const op = new Stage2Opening(() => {
     showBattleUI();
     currentStage = 2;
-    game.player.setWeapon(getBestWeapon());
-    game.player.setTrainingBonus(getTrainingBonus());
+    applyWeaponBonuses();
     game.startStage2();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
@@ -1552,8 +1573,7 @@ function startStage3Opening() {
   const op = new Stage3Opening(() => {
     showBattleUI();
     currentStage = 3;
-    game.player.setWeapon(getBestWeapon());
-    game.player.setTrainingBonus(getTrainingBonus());
+    applyWeaponBonuses();
     game.startStage3();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);
@@ -1570,8 +1590,7 @@ function startStage4Opening() {
   const op = new Stage4Opening(() => {
     showBattleUI();
     currentStage = 4;
-    game.player.setWeapon(getBestWeapon());
-    game.player.setTrainingBonus(getTrainingBonus());
+    applyWeaponBonuses();
     game.startStage4();
     hud.reset();
     hud.setZombies(game.zombies.aliveCount);

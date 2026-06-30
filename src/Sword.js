@@ -233,6 +233,9 @@ export class Sword {
       fire:   { aura: 0xff3300, emis: 0xff5a1e },
       leaf:   { aura: 0x33dd44, emis: 0x12aa22 },
       poison: { aura: 0xaa44dd, emis: 0x8e24aa },
+      ice:    { aura: 0x88ddff, emis: 0x0099cc },
+      money:  { aura: 0xffee44, emis: 0xcc8800 },
+      curse:  { aura: 0xcc44ff, emis: 0x660099 },
     };
     const c = COLS[type] || COLS.fire;
 

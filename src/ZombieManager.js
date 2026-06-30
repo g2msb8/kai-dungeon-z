@@ -289,6 +289,7 @@ export class ZombieManager {
 
   // ── 毎フレーム更新 ────────────────────────────────────────
   update(dt, player, clones = []) {
+    this._player = player; // money enchant ally phase で参照
     // ネザライト矢 VFX
     for (let i = this._arrows.length - 1; i >= 0; i--) {
       const a = this._arrows[i];
@@ -1152,13 +1153,16 @@ export class ZombieManager {
   }
 
   // ─── 剣エンチャント：被弾した敵に確率で状態異常を付与 ──────────
-  // sword.enchant: 'fire' | 'leaf' | 'poison' | null
+  // sword.enchant: 'fire' | 'leaf' | 'poison' | 'ice' | 'money' | 'curse' | null
   _procEnchant(target, sword) {
     const e = sword && sword.enchant;
     if (!e || !target || target.dying || target.alive === false) return;
-    if (e === 'fire'   && Math.random() < 0.30) this._addStatus(target, 'fire');
+    if      (e === 'fire'   && Math.random() < 0.30) this._addStatus(target, 'fire');
     else if (e === 'leaf'   && Math.random() < 0.30) this._addStatus(target, 'leaf');
     else if (e === 'poison' && Math.random() < 0.25) this._addStatus(target, 'poison');
+    else if (e === 'ice'    && Math.random() < 0.40) this._addStatus(target, 'ice');
+    else if (e === 'money'  && Math.random() < 0.35) this._addStatus(target, 'money');
+    else if (e === 'curse'  && Math.random() < 0.30) this._addStatus(target, 'curse');
   }
 
   _addStatus(target, type) {
@@ -1186,8 +1190,43 @@ export class ZombieManager {
     } else if (type === 'poison') {
       fx.dur = 10;
       fx.mesh = this._makeAura(0x66dd33, 0x227700, 1.5);
+    } else if (type === 'ice') {
+      fx.dur = 12;
+      fx.mesh = this._makeAura(0x88ddff, 0x0099cc, 1.35);
+      target.frozen = true;
+    } else if (type === 'money') {
+      // おかねこわすぎ：1.5秒で急接近→その後、味方に転換
+      fx.dur = 20; // 総管理時間（1.5s rush + 最大18.5s ally）
+      fx.mesh = this._makeAura(0xffee44, 0xcc8800, 1.3);
+      fx._phase = 'rush'; // 'rush' → 'ally'
+      target.frozen = true; // 通常移動・攻撃を無効化
+      // 元の色を保存して緑のtintにする
+      if (target.root) target.root.traverse(m => {
+        if (m.isMesh && m.material) {
+          m.material = m.material.clone();
+          m.material.emissive = new THREE.Color(0x886600);
+          m.material.emissiveIntensity = 0.5;
+        }
+      });
+    } else if (type === 'curse') {
+      // 呪い：10秒間不規則移動（紫体）→その後、味方に転換
+      fx.dur = 25; // 総管理時間（10s curse + 最大15s ally）
+      fx.mesh = this._makeAura(0xaa44ff, 0x660099, 1.4);
+      fx._phase = 'curse';
+      fx._randDir = Math.random() * Math.PI * 2;
+      fx._randTimer = 0;
+      target.frozen = true; // 通常AIを止める
+      // 紫に染める
+      if (target.root) target.root.traverse(m => {
+        if (m.isMesh && m.material) {
+          m.material = m.material.clone();
+          m.material.color = new THREE.Color(0x8833bb);
+          m.material.emissive = new THREE.Color(0x440066);
+          m.material.emissiveIntensity = 0.6;
+        }
+      });
     }
-    this.scene.add(fx.mesh);
+    if (fx.mesh) this.scene.add(fx.mesh);
     this._statusFx.push(fx);
   }
 
@@ -1240,12 +1279,116 @@ export class ZombieManager {
           tg._burnAtkReduce = 0;
           this._disposeStatusFx(fx); this._statusFx.splice(i, 1); continue;
         }
+      } else if (fx.type === 'ice') {
+        // アイス：12秒凍結
+        tg.frozen = true;
+        if (tg.root) { tg.root.position.x = fx.x0; tg.root.position.z = fx.z0; }
+        fx.mesh.scale.setScalar(1.35 + Math.sin(fx.t * 6) * 0.06);
+      } else if (fx.type === 'money') {
+        // おかねこわすぎ：rush(1.5s) → ally
+        if (fx._phase === 'rush') {
+          // 2倍速でプレイヤー方向へ手動移動（frozen=trueで通常AIは止まる）
+          const spd = 4.4 * 2; // ZOMBIE.MOVE_SPEED * 2 相当
+          const pdx = this._player ? this._player.position.x - tg.position.x : 0;
+          const pdz = this._player ? this._player.position.z - tg.position.z : 0;
+          const pdist = Math.hypot(pdx, pdz);
+          if (pdist > 0.1) {
+            tg.root.position.x += (pdx / pdist) * spd * dt;
+            tg.root.position.z += (pdz / pdist) * spd * dt;
+            if (tg.root) tg.root.rotation.y = Math.atan2(pdx, pdz);
+          }
+          if (fx.t >= 1.5) {
+            fx._phase = 'ally';
+            // 金色から緑がかった色へ（味方の印）
+            if (tg.root) tg.root.traverse(m => {
+              if (m.isMesh && m.material) {
+                m.material.emissive = new THREE.Color(0x007700);
+                m.material.emissiveIntensity = 0.55;
+              }
+            });
+          }
+        } else {
+          // ally phase: 近くの味方でないゾンビに向かって攻撃
+          this._updateAllyBehavior(fx, tg, dt);
+        }
+      } else if (fx.type === 'curse') {
+        // 呪い：curse(10s) 不規則移動（紫体） → ally
+        if (fx._phase === 'curse') {
+          tg.frozen = true; // 通常AIは止める
+          // ランダムな方向に自分で動かす
+          fx._randTimer -= dt;
+          if (fx._randTimer <= 0) {
+            fx._randDir = Math.random() * Math.PI * 2;
+            fx._randTimer = 0.5 + Math.random() * 0.8;
+          }
+          const spd = 2.5;
+          tg.root.position.x += Math.sin(fx._randDir) * spd * dt;
+          tg.root.position.z += Math.cos(fx._randDir) * spd * dt;
+          if (tg.root) tg.root.rotation.y = fx._randDir;
+          // 紫オーラ脈動
+          fx.mesh.scale.setScalar(1.4 + Math.sin(fx.t * 9) * 0.2);
+          if (fx.t >= 10) {
+            fx._phase = 'ally';
+            // 緑がかった発光へ変化（味方の印）
+            if (tg.root) tg.root.traverse(m => {
+              if (m.isMesh && m.material) {
+                m.material.color = new THREE.Color(0x44cc44);
+                m.material.emissive = new THREE.Color(0x007700);
+                m.material.emissiveIntensity = 0.55;
+              }
+            });
+          }
+        } else {
+          this._updateAllyBehavior(fx, tg, dt);
+        }
       }
 
       // 時間切れ（fire以外）
       if (fx.type !== 'fire' && fx.t >= fx.dur) {
-        if (fx.type === 'leaf') tg.frozen = false;
+        if (fx.type === 'leaf' || fx.type === 'ice') tg.frozen = false;
+        if (fx.type === 'money' || fx.type === 'curse') {
+          // 味方期間終了→倒す
+          tg.frozen = false;
+          if (tg.alive && tg.takeDamage) tg.takeDamage(999999);
+        }
         this._disposeStatusFx(fx); this._statusFx.splice(i, 1);
+      }
+    }
+  }
+
+  // 味方ゾンビが他のゾンビを攻撃する（money/curseのally phase共通）
+  _updateAllyBehavior(fx, tg, dt) {
+    tg.frozen = true; // 通常AIは常に止める
+    // 最近傍の通常ゾンビを探す（自分・他の味方 除く）
+    const allyFxTargets = new Set(this._statusFx
+      .filter(f => (f.type === 'money' || f.type === 'curse') && f._phase === 'ally')
+      .map(f => f.target));
+    const enemies = this.zombies.filter(z => z.alive && !z.dying && !allyFxTargets.has(z) && z !== tg);
+    if (enemies.length === 0) return;
+    let nearest = null, nearestDist = Infinity;
+    for (const z of enemies) {
+      const d = Math.hypot(z.position.x - tg.position.x, z.position.z - tg.position.z);
+      if (d < nearestDist) { nearest = z; nearestDist = d; }
+    }
+    if (!nearest) return;
+    const dx = nearest.position.x - tg.position.x;
+    const dz = nearest.position.z - tg.position.z;
+    const dist = Math.hypot(dx, dz);
+    if (tg.root) tg.root.rotation.y = Math.atan2(dx, dz);
+    if (dist > 1.5) {
+      // 近づく
+      const spd = 3.8;
+      tg.root.position.x += (dx / dist) * spd * dt;
+      tg.root.position.z += (dz / dist) * spd * dt;
+    } else {
+      // 攻撃（0.8秒クールダウン）
+      fx._allyAtkTimer = (fx._allyAtkTimer ?? 0) - dt;
+      if (fx._allyAtkTimer <= 0) {
+        fx._allyAtkTimer = 0.8;
+        if (nearest.takeDamage && nearest.takeDamage(20)) {
+          soundManager.playZombieDeath();
+          this._onKill();
+        }
       }
     }
   }
