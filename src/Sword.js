@@ -151,7 +151,7 @@ export class Sword {
 
   // ─── 公開プロパティ ─────────────────────────────────────
   get wData()  { return WEAPONS[this.weaponType] || WEAPONS.copper; }
-  get damage() { return Math.round(this.wData.damage * (1 + (this._trainingBonus ?? 0))) + (this._enhanceBonus ?? 0); }
+  get damage() { return Math.round(this.wData.damage * (1 + (this._trainingBonus ?? 0)) * (this._enlargeMult ?? 1)) + (this._enhanceBonus ?? 0); }
   get isAoe()  { return this.wData.aoe; }
   get ready()  { return !this.swinging && this.cooldown <= 0; }
 

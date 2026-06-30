@@ -163,6 +163,9 @@ const SKILLS = [
   { id: 'clone',        name: '分身' },
   { id: 'ghostarrows',  name: '爆無闇死矢' },
   { id: 'invisibility', name: '透明化' },
+  { id: 'enlarge',      name: '拡大効果' },
+  { id: 'magicdestroy', name: '魔力破壊' },
+  { id: 'stonegolem',   name: 'ストーンゴーレム' },
 ];
 
 // ─── 所持アイテム ──────────────────────────────────────────
@@ -1353,6 +1356,12 @@ function activateSkill(id) {
     game.zombies.castGhostArrows(game.player);
   } else if (id === 'invisibility') {
     game.player.startInvisibility();
+  } else if (id === 'enlarge') {
+    game.player.startEnlarge();
+  } else if (id === 'magicdestroy') {
+    game.zombies.castMagicDestroy(game.player);
+  } else if (id === 'stonegolem') {
+    game.spawnGolem();
   }
 }
 

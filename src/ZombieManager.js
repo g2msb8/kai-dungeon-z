@@ -1255,6 +1255,110 @@ export class ZombieManager {
     if (fx.needles) for (const n of fx.needles) { this.scene.remove(n); n.geometry.dispose(); n.material.dispose(); }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 特殊技「魔力破壊」
+  // 1秒間：プレイヤーからランダム向きに紫の斬撃が飛ぶ
+  // 1.5秒後：大きな紫色の爆発が起こり、10.2m以内の敵を全滅
+  // ═══════════════════════════════════════════════════════════
+  castMagicDestroy(player) {
+    const px = player.position.x, pz = player.position.z;
+
+    // 1秒間に8本の紫の斬撃を時間差でばら撒く
+    for (let i = 0; i < SPECIAL.MAGIC_SLASH_COUNT; i++) {
+      setTimeout(() => {
+        if (!this.scene) return;
+        const angle = Math.random() * Math.PI * 2;
+        const vy    = (Math.random() - 0.4) * 3;
+        const speed = 16 + Math.random() * 10;
+        const geo = new THREE.BoxGeometry(0.08, 0.08, 0.7);
+        const mat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xaa00ff : 0xdd44ff });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(px, 1.1 + Math.random() * 0.6, pz);
+        mesh.rotation.y = angle;
+        this.scene.add(mesh);
+        this._particles.push({
+          mesh, life: 0.65 + Math.random() * 0.3,
+          vx: -Math.sin(angle) * speed,
+          vy,
+          vz: -Math.cos(angle) * speed,
+          gravity: false,
+        });
+      }, i * (SPECIAL.MAGIC_SLASH_DURATION * 1000 / SPECIAL.MAGIC_SLASH_COUNT));
+    }
+
+    // 1.5秒後に大爆発
+    setTimeout(() => {
+      if (!this.scene) return;
+      // 爆発エフェクト（拡がる球）
+      for (let i = 0; i < 48; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const phi   = Math.random() * Math.PI;
+        const speed = 6 + Math.random() * 10;
+        const geo = new THREE.SphereGeometry(0.18 + Math.random() * 0.22, 6, 6);
+        const mat = new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? 0x6600cc : i % 3 === 1 ? 0xbb00ff : 0xff88ff });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(px, 0.6 + Math.random() * 1.8, pz);
+        this.scene.add(mesh);
+        this._particles.push({
+          mesh, life: 0.9 + Math.random() * 0.5,
+          vx: Math.sin(phi) * Math.cos(angle) * speed,
+          vy: Math.cos(phi) * speed * 0.5,
+          vz: Math.sin(phi) * Math.sin(angle) * speed,
+          gravity: false,
+        });
+      }
+      // 範囲内の敵を全滅
+      const allEnemies = [
+        ...this.zombies,
+        ...(this._boss && this._boss.alive ? [this._boss] : []),
+        ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+      ];
+      for (const z of allEnemies) {
+        if (!z.alive || z.dying) continue;
+        const d = Math.hypot(z.position.x - px, z.position.z - pz);
+        if (d <= SPECIAL.MAGIC_DESTROY_RADIUS) {
+          if (z.vanish) {
+            z.vanish();
+            soundManager.playZombieDeath();
+            this._onKill();
+          } else {
+            if (z.takeDamage(999999)) { soundManager.playZombieDeath(); this._onKill(); }
+          }
+        }
+      }
+    }, SPECIAL.MAGIC_DESTROY_DELAY * 1000);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // ストーンゴーレムのスラム効果：radius以内の敵をduration秒スタン
+  // ═══════════════════════════════════════════════════════════
+  stunNearby(cx, cz, radius, duration) {
+    const allEnemies = [
+      ...this.zombies,
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ];
+    for (const z of allEnemies) {
+      if (!z.alive || z.dying) continue;
+      const d = Math.hypot(z.position.x - cx, z.position.z - cz);
+      if (d <= radius) {
+        z.frozen = true;
+        // グラグラ揺れエフェクト（元のX位置を記憶して小刻みに動かす）
+        const ox = z.root ? z.root.position.x : z.position.x;
+        let shakeT = 0;
+        const shakeId = setInterval(() => {
+          shakeT += 0.1;
+          if (z.root) z.root.position.x = ox + Math.sin(shakeT * 25) * 0.08;
+        }, 100);
+        setTimeout(() => {
+          clearInterval(shakeId);
+          if (z.root) z.root.position.x = ox;
+          if (z.alive) z.frozen = false;
+        }, duration * 1000);
+      }
+    }
+  }
+
   clear() {
     for (const z of this.zombies) z.dispose(this.scene);
     if (this._boss) { this._boss.dispose(this.scene); this._boss = null; }

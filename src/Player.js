@@ -28,11 +28,14 @@ export class Player {
     this._invisTime = 0;     // 透明化残り時間(秒)
     this.isInvisible = false;
     this._clones    = [];    // 分身リスト
+    this._enlargeTime = 0;   // 拡大効果残り時間(秒)
+    this._enlargeAura = null;
+    this._enlargeHue  = 0;
   }
 
   get position()    { return this.root.position; }
-  // インフェルノ攻撃中は無敵
-  get invincible()  { return this.sword.swinging && this.sword.weaponType === 'inferno'; }
+  // インフェルノ攻撃中 or 拡大効果中は無敵
+  get invincible()  { return (this.sword.swinging && this.sword.weaponType === 'inferno') || this._enlargeTime > 0; }
 
   // 服装(getPlayerOutfit)を反映して体を作り直す。剣は呼び出し側で setWeapon して付け直す。
   rebuildBody() {
@@ -101,7 +104,7 @@ export class Player {
     const len = Math.hypot(move.x, move.z);
     this._moving = len > 0.05;
 
-    const moveSpeed = PLAYER.MOVE_SPEED * (dashing ? SPECIAL.DASH_MULT : 1);
+    const moveSpeed = PLAYER.MOVE_SPEED * (dashing ? SPECIAL.DASH_MULT : 1) * (this._enlargeTime > 0 ? SPECIAL.ENLARGE_SPEED_MULT : 1);
 
     // インフェルノ: スイング中にトルネードスピン
     const spinY = this.sword.getBodySpinY();
@@ -145,6 +148,9 @@ export class Player {
     // ボディチルト: バク転（iron）+ ダッシュ前傾
     this.root.rotation.x = this.sword.getBodyTiltX() + (dashing ? 0.32 : 0);
 
+    // 拡大効果の更新
+    this._updateEnlarge(dt);
+
     // 足音
     soundManager.updateFootstep(dt, this._moving);
 
@@ -159,6 +165,48 @@ export class Player {
     });
 
     return this.sword.update(dt);
+  }
+
+  // ─── 特殊技: 拡大効果 ────────────────────────────────────
+  startEnlarge() {
+    this._enlargeTime = SPECIAL.ENLARGE_DURATION;
+    this.root.scale.setScalar(SPECIAL.ENLARGE_SCALE);
+    this.sword._enlargeMult = SPECIAL.ENLARGE_SCALE;
+    // 既存オーラを破棄
+    if (this._enlargeAura) {
+      this.root.remove(this._enlargeAura);
+      this._enlargeAura.geometry.dispose();
+      this._enlargeAura.material.dispose();
+    }
+    // 虹色オーラ（円筒・両面）
+    const geo = new THREE.CylinderGeometry(0.85, 0.85, 2.4, 22, 1, true);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+    this._enlargeAura = new THREE.Mesh(geo, mat);
+    this._enlargeAura.position.y = 1.1;
+    this.root.add(this._enlargeAura);
+    soundManager.playWhoosh();
+  }
+
+  _updateEnlarge(dt) {
+    if (this._enlargeTime <= 0) return;
+    this._enlargeTime -= dt;
+    // 虹色サイクル
+    this._enlargeHue = (this._enlargeHue + dt * 200) % 360;
+    if (this._enlargeAura) {
+      this._enlargeAura.material.color.setHSL(this._enlargeHue / 360, 1.0, 0.55);
+      this._enlargeAura.rotation.y += dt * 1.8;
+    }
+    if (this._enlargeTime <= 0) {
+      this._enlargeTime = 0;
+      this.root.scale.setScalar(1);
+      this.sword._enlargeMult = 1;
+      if (this._enlargeAura) {
+        this.root.remove(this._enlargeAura);
+        this._enlargeAura.geometry.dispose();
+        this._enlargeAura.material.dispose();
+        this._enlargeAura = null;
+      }
+    }
   }
 
   // ─── 特殊技: ダッシュ ──────────────────────────────────────
@@ -223,11 +271,10 @@ export class Player {
   }
 
   // ─── 特殊技: 分身 ────────────────────────────────────────
+  // 呼ぶたびに分身が増える（既存は消えない）
   startClone(scene) {
-    for (const c of this._clones) c.dispose();
-    this._clones = [];
     for (let i = 0; i < SPECIAL.CLONE_COUNT; i++) {
-      const angle = (i / SPECIAL.CLONE_COUNT) * Math.PI * 2;
+      const angle = (i / SPECIAL.CLONE_COUNT) * Math.PI * 2 + Math.random() * Math.PI;
       const dist  = 3.5;
       const pos   = new THREE.Vector3(
         this.root.position.x + Math.sin(angle) * dist,
@@ -259,6 +306,16 @@ export class Player {
     this._jump      = null;
     this._invisTime = 0;
     this.isInvisible = false;
+    // 拡大効果リセット
+    this._enlargeTime = 0;
+    this.root.scale.setScalar(1);
+    if (this.sword) this.sword._enlargeMult = 1;
+    if (this._enlargeAura) {
+      this.root.remove(this._enlargeAura);
+      this._enlargeAura.geometry.dispose();
+      this._enlargeAura.material.dispose();
+      this._enlargeAura = null;
+    }
     this.root.traverse(m => {
       if (m.isMesh && m.material && m.material.transparent) {
         m.material.transparent = false;

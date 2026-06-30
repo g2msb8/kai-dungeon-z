@@ -16,7 +16,8 @@ import { Player } from './Player.js';
 import { ZombieManager } from './ZombieManager.js';
 import { Pet } from './Pet.js';
 import { Robot } from './Robot.js';
-import { COLORS, PLAYER } from './core/Constants.js';
+import { StoneGolem } from './StoneGolem.js';
+import { COLORS, PLAYER, SPECIAL } from './core/Constants.js';
 
 export class Game {
   constructor(container) {
@@ -54,8 +55,9 @@ export class Game {
     this.scene.add(this.player.root);
 
     this.zombies = new ZombieManager(this.scene);
-    this.pet = null;
+    this.pet   = null;
     this.robot = null;
+    this.golem = null;
 
     this._camTarget = new THREE.Vector3();
     this._updateCamera(1, true);
@@ -109,6 +111,21 @@ export class Game {
       this.robot.update(dt, this.player, this.zombies.zombies, () => this.zombies.recordKill());
     }
 
+    // ストーンゴーレム更新
+    if (this.golem) {
+      if (this.golem.alive) {
+        const didSlam = this.golem.update(dt, this.player.root.position);
+        if (didSlam) {
+          this.zombies.stunNearby(
+            this.golem.position.x, this.golem.position.z,
+            SPECIAL.GOLEM_STUN_RADIUS, SPECIAL.GOLEM_STUN_DURATION,
+          );
+        }
+      } else {
+        this.golem = null;
+      }
+    }
+
     const dmg = this.zombies.update(dt, this.player, targets);
     if (dmg > 0 && !this.player.invincible) {
       this.player.takeDamage(dmg);
@@ -137,8 +154,15 @@ export class Game {
     this.renderer.render(this.scene, this.camera);
   }
 
+  spawnGolem() {
+    if (!this.golem || !this.golem.alive) {
+      this.golem = new StoneGolem(this.scene, this.player.root.position.clone());
+    }
+  }
+
   startStage() {
     this.player.reset();
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.zombies.spawn();
     this._updateCamera(1, true);
   }
@@ -152,6 +176,7 @@ export class Game {
     this._ambient.color.set(0x5a6080);
     this.sun.color.set(0xd0d8e8);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupBossStage(5);
     this._updateCamera(1, true);
@@ -166,6 +191,7 @@ export class Game {
     this._ambient.color.set(0x402010);
     this.sun.color.set(0xff6600);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupStage3();
     this._updateCamera(1, true);
@@ -180,6 +206,7 @@ export class Game {
     this._ambient.color.set(0x806040);
     this.sun.color.set(0xffd080);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupStage4();
     this._updateCamera(1, true);
@@ -194,6 +221,7 @@ export class Game {
     this._ambient.color.set(0x6080c0);
     this.sun.color.set(0xd0e8ff);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupStage5();
     this._updateCamera(1, true);
@@ -208,6 +236,7 @@ export class Game {
     this._ambient.color.set(0x180020);
     this.sun.color.set(0x8800aa);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupStage6();
     this._updateCamera(1, true);
@@ -222,6 +251,8 @@ export class Game {
     this._ambient.color.set(0xb0c8ff);
     this.sun.color.set(0xffffff);
 
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
+    if (this.golem) { this.golem.dispose(); this.golem = null; }
     this.player.reset();
     this.zombies.setupStage7();
     this._updateCamera(1, true);
