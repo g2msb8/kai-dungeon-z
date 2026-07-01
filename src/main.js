@@ -905,16 +905,17 @@ document.getElementById('btn-shop-gemforge').addEventListener('click', () => {
   openGemForge();
 });
 
-// ─── エンチャント店（エッセンス購入＋魔法の石に付与）───────────
+// ─── エンチャント店（エッセンス購入＋剣に直接エンチャント）───────────
 const enchantOverlay = document.getElementById('enchant-overlay');
 const enchantCounts  = document.getElementById('enchant-counts');
 const enchantBuyList = document.getElementById('enchant-buy-list');
 const enchantMakeList = document.getElementById('enchant-make-list');
+let _enchSwordPanelType = null; // 剣選択パネルを開いているエンチャント種
 
 function _refreshEnchantShop() {
   enchantCounts.innerHTML =
     `🔮 魔法の石：<b>${getMagicTotal()}</b>　／　💎 ダイヤ：<b>${getDiamondTotal()}</b><br>` +
-    ENCH_TYPES.map(t => `${ENCH_INFO[t].emoji}${ENCH_INFO[t].name}: エッセンス${getEssence(t)}・石${getEnchStone(t)}`).join('　');
+    ENCH_TYPES.map(t => `${ENCH_INFO[t].emoji}${ENCH_INFO[t].name}: エッセンス${getEssence(t)}`).join('　');
 
   // 買う（ダイヤ1個でエッセンス）
   enchantBuyList.innerHTML = '';
@@ -937,27 +938,75 @@ function _refreshEnchantShop() {
     enchantBuyList.appendChild(row);
   });
 
-  // 魔法の石にエンチャントをつける（魔法の石1＋エッセンス1 → エンチャント石1）
+  // 剣に直接エンチャントをつける（魔法の石1＋エッセンス1 → 剣に即装着）
   enchantMakeList.innerHTML = '';
   ENCH_TYPES.forEach(t => {
     const info = ENCH_INFO[t];
+    const canApply = getMagicTotal() >= 1 && getEssence(t) >= 1;
+    const isOpen = _enchSwordPanelType === t;
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'width:100%;display:flex;flex-direction:column;align-items:center;gap:6px;';
+
     const row = document.createElement('div');
     row.className = 'ench-row';
     row.innerHTML = `<div class="ench-emoji">🔮${info.emoji}</div>` +
-      `<div class="ench-info"><div class="ench-name">${info.name}エンチャントの石を作る</div><div class="ench-sub">魔法の石×1 ＋ ${info.name}エッセンス×1</div></div>`;
+      `<div class="ench-info"><div class="ench-name">${info.name}エンチャントをつける</div><div class="ench-sub">魔法の石×1 ＋ ${info.name}エッセンス×1</div></div>`;
     const btn = document.createElement('button');
-    btn.className = 'ench-act'; btn.textContent = 'エンチャントをつける';
-    btn.disabled = getMagicTotal() < 1 || getEssence(t) < 1;
+    btn.className = 'ench-act';
+    btn.textContent = isOpen ? '▲ とじる' : 'エンチャントをつける';
+    btn.disabled = !canApply && !isOpen;
     btn.addEventListener('click', () => {
-      if (getMagicTotal() < 1 || getEssence(t) < 1) return;
-      setMagicTotal(getMagicTotal() - 1);
-      addEssence(t, -1);
-      addEnchStone(t, 1);
-      _showForgeComplete2(`${info.emoji} ${info.name}エンチャントの石 完成！`);
-      updateMaterialDisplay(); _refreshEnchantShop();
+      _enchSwordPanelType = isOpen ? null : t;
+      _refreshEnchantShop();
     });
     row.appendChild(btn);
-    enchantMakeList.appendChild(row);
+    wrap.appendChild(row);
+
+    // 剣選択パネル
+    if (isOpen) {
+      const panel = document.createElement('div');
+      panel.style.cssText = 'width:100%;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;padding:4px 0;';
+
+      const owned = getOwned();
+      const swordOrder = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
+      let hasSwords = false;
+      swordOrder.forEach(id => {
+        if (!owned[id] && id !== 'copper') return;
+        hasSwords = true;
+        const curEnch = getSwordEnchant(id);
+        const isSame  = curEnch === t;
+        const hasOther = curEnch && curEnch !== t;
+        const curTxt = curEnch ? `${ENCH_INFO[curEnch]?.emoji ?? ''}${ENCH_INFO[curEnch]?.name ?? curEnch}` : 'なし';
+
+        let statusTag = '';
+        if (isSame)    statusTag = '<div style="font-size:10px;color:#ff8888;font-weight:bold;margin-top:2px;">✔ 装着済み</div>';
+        else if (hasOther) statusTag = '<div style="font-size:10px;color:#aaaaff;margin-top:2px;">⚡ ゲット済み（上書き可）</div>';
+
+        const sBtn = document.createElement('button');
+        sBtn.className = 'forge-weapon-btn';
+        sBtn.innerHTML = `${WEAPON_NAMES_SHORT[id] ?? id}<div class="forge-weapon-bonus">エンチャント: ${curTxt}</div>${statusTag}`;
+        sBtn.disabled = isSame || !canApply;
+        if (isSame) { sBtn.style.opacity = '0.45'; sBtn.style.background = 'rgba(80,40,40,0.6)'; }
+        else if (hasOther) { sBtn.style.opacity = '0.8'; }
+
+        sBtn.addEventListener('click', () => {
+          if (!canApply || isSame) return;
+          setMagicTotal(getMagicTotal() - 1);
+          addEssence(t, -1);
+          setSwordEnchant(id, t);
+          sBtn.classList.add('selected');
+          _showForgeComplete2(`✨ ${WEAPON_NAMES_SHORT[id] ?? id} に ${info.name}エンチャント！`);
+          _enchSwordPanelType = null;
+          setTimeout(() => { updateMaterialDisplay(); _refreshEnchantShop(); }, 350);
+        });
+        panel.appendChild(sBtn);
+      });
+      if (!hasSwords) panel.innerHTML = '<span style="color:rgba(255,255,255,0.5);font-size:13px;">所持している剣がありません</span>';
+      wrap.appendChild(panel);
+    }
+
+    enchantMakeList.appendChild(wrap);
   });
 }
 function openEnchantShop() {
