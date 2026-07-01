@@ -1202,6 +1202,11 @@
       box-shadow: 0 3px 8px rgba(0,0,0,0.4); cursor: pointer; text-align: center;
     }
     .special-skill-btn:active { transform: scale(0.96); }
+    .special-skill-btn.on-cooldown {
+      background: linear-gradient(180deg, #555, #333);
+      color: rgba(255,255,255,0.45); border-color: rgba(255,255,255,0.2);
+      cursor: default; pointer-events: none;
+    }
 
     /* ハイパージャンプ ボタン（攻撃ボタンの隣・黄色） */
     #hyperjump-btn {

@@ -160,16 +160,23 @@ function setSwordEnchant(wt, e){ const m = _getMap('dz_sword_enchant'); m[wt] = 
 
 // ─── 特殊技の定義 ──────────────────────────────────────────
 const SKILLS = [
-  { id: 'dash',         name: 'ダッシュ' },
-  { id: 'hyperjump',    name: 'ハイパージャンプ' },
-  { id: 'meteor',       name: '隕石投げ' },
-  { id: 'clone',        name: '分身' },
-  { id: 'ghostarrows',  name: '爆無闇死矢' },
-  { id: 'invisibility', name: '透明化' },
-  { id: 'enlarge',      name: '拡大効果' },
-  { id: 'magicdestroy', name: '魔力破壊' },
-  { id: 'stonegolem',   name: 'ストーンゴーレム' },
+  { id: 'dash',         name: 'ダッシュ',          cooldown:  2 },
+  { id: 'hyperjump',    name: 'ハイパージャンプ',   cooldown:  3 },
+  { id: 'meteor',       name: '隕石投げ',           cooldown:  4 },
+  { id: 'clone',        name: '分身',               cooldown:  5 },
+  { id: 'ghostarrows',  name: '爆無闇死矢',         cooldown:  6 },
+  { id: 'invisibility', name: '透明化',             cooldown:  7 },
+  { id: 'enlarge',      name: '拡大効果',           cooldown:  8 },
+  { id: 'magicdestroy', name: '魔力破壊',           cooldown:  9 },
+  { id: 'stonegolem',   name: 'ストーンゴーレム',   cooldown: 10 },
 ];
+
+// ─── スキルクールダウン管理 ────────────────────────────────
+const _skillCDEnd = {}; // id → クールダウン終了のタイムスタンプ(ms)
+function _isOnCD(id)      { return (_skillCDEnd[id] ?? 0) > Date.now(); }
+function _startCD(id)     { const sk = SKILLS.find(s => s.id === id); _skillCDEnd[id] = Date.now() + (sk?.cooldown ?? 5) * 1000; }
+function _cdRemainSec(id) { return Math.ceil(Math.max(0, (_skillCDEnd[id] ?? 0) - Date.now()) / 1000); }
+let _cdInterval = null;
 
 // ─── 所持アイテム ──────────────────────────────────────────
 function getOwned() {
@@ -1408,22 +1415,45 @@ function updateSpecialBtn() {
 }
 
 // 所持している特殊技を選択メニューに並べる
+function _updateSkillBtns() {
+  for (const s of ownedSkills()) {
+    const btn = specialMenu.querySelector(`[data-skill="${s.id}"]`);
+    if (!btn) continue;
+    const rem = _cdRemainSec(s.id);
+    if (rem > 0) {
+      btn.textContent = `${s.name}（${rem}秒）`;
+      btn.classList.add('on-cooldown');
+      btn.disabled = true;
+    } else {
+      btn.textContent = s.name;
+      btn.classList.remove('on-cooldown');
+      btn.disabled = false;
+    }
+  }
+}
+
 function buildSpecialMenu() {
+  if (_cdInterval) { clearInterval(_cdInterval); _cdInterval = null; }
   specialMenu.innerHTML = '';
   for (const s of ownedSkills()) {
     const b = document.createElement('button');
-    b.className   = 'special-skill-btn';
-    b.textContent = s.name;
+    b.className      = 'special-skill-btn';
+    b.dataset.skill  = s.id;
     b.addEventListener('click', () => {
+      if (_isOnCD(s.id)) return;
       activateSkill(s.id);
       specialMenu.classList.add('hidden');
+      if (_cdInterval) { clearInterval(_cdInterval); _cdInterval = null; }
     });
     specialMenu.appendChild(b);
   }
+  _updateSkillBtns();
+  _cdInterval = setInterval(_updateSkillBtns, 250);
 }
 
 function activateSkill(id) {
   if (state !== STATE.PLAYING) return;
+  if (_isOnCD(id)) return;
   if (id === 'dash') {
     game.player.startDash();
   } else if (id === 'hyperjump') {
@@ -1443,6 +1473,7 @@ function activateSkill(id) {
   } else if (id === 'stonegolem') {
     game.spawnGolem();
   }
+  _startCD(id);
 }
 
 specialBtn.addEventListener('click', () => {
@@ -1451,6 +1482,7 @@ specialBtn.addEventListener('click', () => {
     specialMenu.classList.remove('hidden');
   } else {
     specialMenu.classList.add('hidden');
+    if (_cdInterval) { clearInterval(_cdInterval); _cdInterval = null; }
   }
 });
 
