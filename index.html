@@ -448,8 +448,9 @@
       position: fixed; inset: 0; z-index: 53;
       height: var(--app-height, 100%);
       background: rgba(8, 10, 16, 0.95);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
       gap: 18px; padding: 24px 16px;
+      overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y;
     }
     .gem-overlay.hidden { display: none; }
     .gem-title { font-size: 24px; font-weight: bold; color: #b3e5fc; letter-spacing: 2px; text-shadow: 0 0 14px rgba(80,200,255,0.5); }
