@@ -76,58 +76,58 @@ export const SPECIAL = {
 export const WEAPONS = {
   copper: {
     name: 'ボロボロの銅の剣',
-    damage: 20, aoe: false,
+    damage: 14, aoe: false,   // 3発(14×3=42>40HP)
     bladeColor: 0xb87333, guardColor: 0x4a3525, glowColor: null,
   },
   iron: {
     name: '鉄の剣',
-    damage: 20, aoe: false,
+    damage: 14.7, aoe: false, // 3発
     bladeColor: 0xd4d4d4, guardColor: 0x909090, glowColor: null,
   },
   diamond: {
     name: 'ダイヤの剣',
-    damage: 40, aoe: false,
+    damage: 16, aoe: false,   // 3発
     bladeColor: 0x26c6da, guardColor: 0x00acc1, glowColor: 0x003a4a,
   },
   netherite: {
     name: 'ネザライトの剣',
-    damage: 40, aoe: true,
+    damage: 16.4, aoe: true,  // 3発
     bladeColor: 0x8845b5, guardColor: 0x2d1640, glowColor: 0x280040,
   },
   light: {
     name: '光の剣',
-    damage: 40, aoe: false,
+    damage: 17.2, aoe: false, // 3発
     bladeColor: 0xFFD700, guardColor: 0xB8860B, glowColor: 0xFFEE00,
   },
   blackhole: {
     name: 'ブラックホールソード',
-    damage: 35, aoe: true,
+    damage: 18, aoe: true,    // 3発
     bladeColor: 0x111111, guardColor: 0x220033, glowColor: 0x6600bb,
   },
   lightning: {
     name: 'ライトニングソード',
-    damage: 40, aoe: false,
+    damage: 19.2, aoe: false, // 3発
     bladeColor: 0x111100, guardColor: 0x333300, glowColor: 0xFFFF00,
   },
   bubble: {
     name: 'バブルソード',
-    damage: 45, aoe: true,
+    damage: 20, aoe: true,    // 2発(20×2=40=HP)
     bladeColor: 0x40e0d0, guardColor: 0x008b8b, glowColor: 0x00ced1,
   },
   inferno: {
     name: 'インフェルノソード',
-    damage: 50, aoe: true,
+    damage: 20.2, aoe: true,  // 2発
     bladeColor: 0xff4500, guardColor: 0x8b0000, glowColor: 0xff6600,
   },
   ice: {
     name: 'アイスソード',
-    damage: 45, aoe: true,
+    damage: 20.7, aoe: true,  // 2発
     bladeColor: 0xadd8e6, guardColor: 0x4682b4, glowColor: 0x87ceeb,
   },
 };
 
 export const ZOMBIE = {
-  MAX_HP: 40,            // 銅の剣(20)で2撃（3発目までに確実に倒せる）
+  MAX_HP: 40,            // 銅の剣(14)で3撃、バブル以降(20+)で2撃
   MOVE_SPEED: 2.2,       // m/s（主人公より遅い）
   RADIUS: 0.5,
   ATTACK_DAMAGE: 5,      // 主人公HP100 → 20回で死亡
