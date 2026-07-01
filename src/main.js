@@ -990,6 +990,15 @@ function _renderSwordEnch() {
   swordenchCounts.innerHTML = ENCH_TYPES
     .map(t => `${ENCH_INFO[t].emoji}${ENCH_INFO[t].name}の石: <b>${getEnchStone(t)}</b>`).join('　');
 
+  // 各エンチャント種が今どの剣についているか調べる
+  const enchOnSword = {}; // type → sword name
+  const order = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
+  order.forEach(id => {
+    if (!owned[id] && id !== 'copper') return;
+    const cur = getSwordEnchant(id);
+    if (cur) enchOnSword[cur] = WEAPON_NAMES_SHORT[id] ?? id;
+  });
+
   // 使うエンチャント石を選ぶ（所持しているものだけ）
   swordenchStones.innerHTML = '';
   const have = ENCH_TYPES.filter(t => getEnchStone(t) > 0);
@@ -997,10 +1006,11 @@ function _renderSwordEnch() {
   if (!_selEnch && have.length) _selEnch = have[0];
   have.forEach(t => {
     const b = document.createElement('button');
-    b.className = 'ench-act' + (t === _selEnch ? '' : '');
+    b.className = 'ench-act';
     b.style.opacity = t === _selEnch ? '1' : '0.55';
     b.style.outline = t === _selEnch ? '3px solid #6ee26e' : 'none';
-    b.textContent = `${ENCH_INFO[t].emoji} ${ENCH_INFO[t].name}（${getEnchStone(t)}）`;
+    const attachedTo = enchOnSword[t] ? `<span style="font-size:10px;display:block;color:#ffcc44;margin-top:2px;">▶ ${enchOnSword[t]}に装着中</span>` : '';
+    b.innerHTML = `${ENCH_INFO[t].emoji} ${ENCH_INFO[t].name}（${getEnchStone(t)}）${attachedTo}`;
     b.addEventListener('click', () => { _selEnch = t; _renderSwordEnch(); });
     swordenchStones.appendChild(b);
   });
@@ -1008,20 +1018,37 @@ function _renderSwordEnch() {
 
   // 剣のグリッド
   swordenchGrid.innerHTML = '';
-  const order = ['copper','iron','diamond','netherite','light','blackhole','lightning','bubble','inferno','ice'];
   order.forEach(id => {
     if (!owned[id] && id !== 'copper') return;
     const cur = getSwordEnchant(id);
     const btn = document.createElement('button');
     btn.className = 'forge-weapon-btn';
-    const curTxt = cur ? `${ENCH_INFO[cur].emoji}${ENCH_INFO[cur].name}` : 'なし';
-    btn.innerHTML = `${WEAPON_NAMES_SHORT[id] ?? id}<div class="forge-weapon-bonus">エンチャント: ${curTxt}</div>`;
-    btn.disabled = !_selEnch;
+    const curTxt = cur ? `${ENCH_INFO[cur]?.emoji ?? ''}${ENCH_INFO[cur]?.name ?? cur}` : 'なし';
+
+    const isSameEnch  = _selEnch && cur === _selEnch;  // 同じエンチャントが既に装着
+    const hasOtherEnch = cur && cur !== _selEnch;       // 別のエンチャントが装着済み
+
+    let statusTag = '';
+    if (isSameEnch) {
+      statusTag = '<div style="font-size:10px;color:#ff8888;margin-top:2px;font-weight:bold;">✔ 装着済み</div>';
+    } else if (hasOtherEnch) {
+      statusTag = '<div style="font-size:10px;color:#aaaaff;margin-top:2px;">⚡ ゲット済み（上書き可）</div>';
+    }
+
+    btn.innerHTML = `${WEAPON_NAMES_SHORT[id] ?? id}<div class="forge-weapon-bonus">エンチャント: ${curTxt}</div>${statusTag}`;
+    btn.disabled = !_selEnch || isSameEnch;
+    if (isSameEnch) {
+      btn.style.opacity = '0.45';
+      btn.style.background = 'rgba(80,40,40,0.6)';
+    } else if (hasOtherEnch) {
+      btn.style.opacity = '0.75';
+    }
+
     btn.addEventListener('click', () => {
-      if (!_selEnch || getEnchStone(_selEnch) <= 0) return;
+      if (!_selEnch || getEnchStone(_selEnch) <= 0 || isSameEnch) return;
       addEnchStone(_selEnch, -1);
-      setSwordEnchant(id, _selEnch);            // 1本に1つ（上書き）
-      btn.classList.add('selected');            // 緑色
+      setSwordEnchant(id, _selEnch);
+      btn.classList.add('selected');
       _showForgeComplete2(`✨ ${WEAPON_NAMES_SHORT[id] ?? id} に ${ENCH_INFO[_selEnch].name}エンチャント！`);
       setTimeout(() => _renderSwordEnch(), 350);
     });
