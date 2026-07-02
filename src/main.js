@@ -169,6 +169,9 @@ const SKILLS = [
   { id: 'enlarge',      name: '拡大効果',           cooldown:  8 },
   { id: 'magicdestroy', name: '魔力破壊',           cooldown:  9 },
   { id: 'stonegolem',   name: 'ストーンゴーレム',   cooldown: 10 },
+  { id: 'barrier',      name: '多重結界',           cooldown: 11 },
+  { id: 'stopwatch',    name: 'ストップウォッチ',   cooldown: 12 },
+  { id: 'fartbomb',     name: 'おなら大爆弾',       cooldown: 13 },
 ];
 
 // ─── スキルクールダウン管理 ────────────────────────────────
@@ -1472,8 +1475,40 @@ function activateSkill(id) {
     game.zombies.castMagicDestroy(game.player);
   } else if (id === 'stonegolem') {
     game.spawnGolem();
+  } else if (id === 'barrier') {
+    game.player.startBarrier();
+  } else if (id === 'stopwatch') {
+    game.zombies.startTimeStop(5);
+    _showTimeStopOverlay(5);
+  } else if (id === 'fartbomb') {
+    game.zombies.castFartBomb(game.player.root.position);
   }
   _startCD(id);
+}
+
+function _showTimeStopOverlay(duration) {
+  const el = document.createElement('div');
+  Object.assign(el.style, {
+    position: 'fixed', inset: '0', zIndex: '25', pointerEvents: 'none',
+    background: 'rgba(0,120,220,0.18)',
+    display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+    paddingTop: '80px',
+  });
+  const label = document.createElement('div');
+  Object.assign(label.style, {
+    fontSize: '32px', fontWeight: 'bold', color: '#80d8ff',
+    textShadow: '0 0 18px #0088ff, 0 2px 6px #000',
+    letterSpacing: '4px',
+  });
+  el.appendChild(label);
+  document.body.appendChild(el);
+  let remain = duration;
+  const iv = setInterval(() => {
+    label.textContent = `⏱ 時間停止 ${remain}秒`;
+    remain--;
+    if (remain < 0) { clearInterval(iv); el.remove(); }
+  }, 1000);
+  label.textContent = `⏱ 時間停止 ${remain}秒`;
 }
 
 specialBtn.addEventListener('click', () => {

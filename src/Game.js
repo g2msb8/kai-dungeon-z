@@ -128,9 +128,11 @@ export class Game {
 
     const dmg = this.zombies.update(dt, this.player, targets);
     if (dmg > 0 && !this.player.invincible) {
-      this.player.takeDamage(dmg);
-      // シャイ猫など：主人公が攻撃された通知
-      if (this.pet && this.pet.alive && this.pet.onPlayerHit) this.pet.onPlayerHit();
+      if (!this.player.absorbBarrierHit()) {
+        this.player.takeDamage(dmg);
+        // シャイ猫など：主人公が攻撃された通知
+        if (this.pet && this.pet.alive && this.pet.onPlayerHit) this.pet.onPlayerHit();
+      }
     }
     this._updateCamera(dt, false);
   }

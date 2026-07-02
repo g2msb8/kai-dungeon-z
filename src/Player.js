@@ -31,6 +31,7 @@ export class Player {
     this._enlargeTime = 0;   // 拡大効果残り時間(秒)
     this._enlargeAura = null;
     this._enlargeHue  = 0;
+    this._barriers = []; // 多重結界シールドリスト [{mesh, hp:2}]
   }
 
   get position()    { return this.root.position; }
@@ -292,6 +293,48 @@ export class Player {
     return started;
   }
 
+  startBarrier() {
+    this._clearBarriers();
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2;
+      const geo = new THREE.PlaneGeometry(1.1, 1.6);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0x40e8ff, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(Math.cos(angle) * 1.0, 0.9, Math.sin(angle) * 1.0);
+      mesh.rotation.y = Math.PI / 2 - angle;
+      this.root.add(mesh);
+      this._barriers.push({ mesh, hp: 2 });
+    }
+  }
+
+  absorbBarrierHit() {
+    if (!this._barriers.length) return false;
+    const b = this._barriers[0];
+    b.hp--;
+    if (b.hp <= 0) {
+      b.mesh.material.color.set(0xff4444);
+      b.mesh.material.opacity = 0.9;
+      setTimeout(() => {
+        this.root.remove(b.mesh);
+        b.mesh.geometry.dispose();
+        b.mesh.material.dispose();
+      }, 200);
+      this._barriers.shift();
+    }
+    return true;
+  }
+
+  _clearBarriers() {
+    for (const b of this._barriers) {
+      this.root.remove(b.mesh);
+      b.mesh.geometry.dispose();
+      b.mesh.material.dispose();
+    }
+    this._barriers = [];
+  }
+
   takeDamage(amount) {
     if (!this.alive) return;
     this.hp = Math.max(0, this.hp - amount);
@@ -324,6 +367,7 @@ export class Player {
     });
     for (const c of this._clones) c.dispose();
     this._clones = [];
+    this._clearBarriers();
     this.root.position.set(0, 0, 0);
     this.root.rotation.set(0, 0, 0);
   }

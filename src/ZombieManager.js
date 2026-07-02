@@ -47,6 +47,8 @@ export class ZombieManager {
     this._endless      = false;
     this._endlessCount = 0;
     this.onEndlessKill = null;  // (count) => {} 倒すたびに通知
+    // ストップウォッチ（時間停止）
+    this._timeStopActive = false;
   }
 
   get endlessCount() { return this._endlessCount; }
@@ -446,6 +448,7 @@ export class ZombieManager {
   }
 
   resolveAttack(player) {
+    if (this._timeStopActive) { this._resolveAttackTimeStop(player); return; }
     const px = player.position.x, pz = player.position.z;
     const wt = player.sword.weaponType;
 
@@ -1475,6 +1478,136 @@ export class ZombieManager {
   // ═══════════════════════════════════════════════════════════
   // ストーンゴーレムのスラム効果：radius以内の敵をduration秒スタン
   // ═══════════════════════════════════════════════════════════
+  startTimeStop(duration = 5) {
+    if (this._timeStopActive) return;
+    this._timeStopActive = true;
+    const allEnemies = [
+      ...this.zombies,
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ];
+    for (const z of allEnemies) {
+      z.frozen = true;
+      z._pendingDamage = 0;
+    }
+    setTimeout(() => this._endTimeStop(), duration * 1000);
+  }
+
+  _endTimeStop() {
+    this._timeStopActive = false;
+    const allEnemies = [
+      ...this.zombies,
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ];
+    for (const z of allEnemies) {
+      if ((z._pendingDamage ?? 0) > 0) {
+        const killed = z.takeDamage(z._pendingDamage);
+        z._pendingDamage = 0;
+        if (killed) { soundManager.playZombieDeath(); this._onKill(); }
+      }
+      if (z.alive) z.frozen = false;
+    }
+  }
+
+  _resolveAttackTimeStop(player) {
+    const px = player.position.x, pz = player.position.z;
+    const dmg = player.sword.damage;
+    if (player.sword.isAoe) {
+      const aoeRange = SWORD.RANGE * 2.2;
+      for (const z of this.zombies) {
+        if (!z.alive || z.dying) continue;
+        if (Math.hypot(z.position.x - px, z.position.z - pz) <= aoeRange)
+          z._pendingDamage = (z._pendingDamage ?? 0) + dmg;
+      }
+    } else {
+      const facing = player.facing;
+      let bestDist = Infinity, bestZ = null;
+      for (const z of this.zombies) {
+        if (!z.alive || z.dying) continue;
+        const dx = z.position.x - px, dz = z.position.z - pz;
+        const dist = Math.hypot(dx, dz);
+        if (dist > SWORD.RANGE) continue;
+        const diff = Math.abs(normalizeAngle(Math.atan2(-dx, -dz) - facing));
+        if (diff > SWORD.ARC / 2) continue;
+        if (dist < bestDist) { bestDist = dist; bestZ = z; }
+      }
+      if (bestZ) bestZ._pendingDamage = (bestZ._pendingDamage ?? 0) + dmg;
+    }
+  }
+
+  castFartBomb(playerPos) {
+    const bombPos = playerPos.clone();
+    const bombGeo = new THREE.SphereGeometry(0.35, 8, 8);
+    const bombMat = new THREE.MeshBasicMaterial({ color: 0x4a2800 });
+    const bombMesh = new THREE.Mesh(bombGeo, bombMat);
+    bombMesh.position.set(bombPos.x, 0.35, bombPos.z);
+    this.scene.add(bombMesh);
+    let t = 0;
+    const pulse = setInterval(() => {
+      t += 0.25;
+      const s = 1 + Math.sin(t * Math.PI) * 0.15;
+      bombMesh.scale.setScalar(s);
+      bombMat.color.setHex(t % 2 < 1 ? 0x4a2800 : 0x886600);
+    }, 100);
+    setTimeout(() => {
+      clearInterval(pulse);
+      this.scene.remove(bombMesh);
+      bombMesh.geometry.dispose(); bombMesh.material.dispose();
+      this._fartExplosion(bombPos);
+    }, 2000);
+  }
+
+  _fartExplosion(pos) {
+    const cloudGeo = new THREE.SphereGeometry(5.5, 12, 12);
+    const cloudMat = new THREE.MeshBasicMaterial({
+      color: 0x66cc44, transparent: true, opacity: 0.30, side: THREE.DoubleSide,
+    });
+    const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+    cloud.position.set(pos.x, 2.0, pos.z);
+    this.scene.add(cloud);
+    let op = 0.30;
+    const fade = setInterval(() => {
+      op -= 0.025;
+      cloudMat.opacity = op;
+      if (op <= 0) { clearInterval(fade); this.scene.remove(cloud); cloudGeo.dispose(); cloudMat.dispose(); }
+    }, 100);
+
+    const RADIUS = 5.5;
+    const allEnemies = [
+      ...this.zombies,
+      ...(this._boss && this._boss.alive ? [this._boss] : []),
+      ...(this._purpleZombie && this._purpleZombie.alive ? [this._purpleZombie] : []),
+    ];
+    for (const z of allEnemies) {
+      if (!z.alive || z.dying) continue;
+      if (Math.hypot(z.position.x - pos.x, z.position.z - pos.z) > RADIUS) continue;
+      z.frozen = true;
+      if (z.root) z.root.rotation.z = Math.PI / 2;
+      const bubbles = [];
+      const bubbleId = setInterval(() => {
+        if (!z.alive) return;
+        const bGeo = new THREE.SphereGeometry(0.12, 6, 6);
+        const bMat = new THREE.MeshBasicMaterial({ color: 0x88ee44, transparent: true, opacity: 0.75 });
+        const b = new THREE.Mesh(bGeo, bMat);
+        b.position.set(
+          z.root.position.x + (Math.random() - 0.5) * 0.5,
+          z.root.position.y + 0.6 + Math.random() * 0.4,
+          z.root.position.z + (Math.random() - 0.5) * 0.5,
+        );
+        this.scene.add(b);
+        bubbles.push(b);
+        setTimeout(() => { this.scene.remove(b); bGeo.dispose(); bMat.dispose(); }, 700);
+      }, 350);
+      setTimeout(() => {
+        clearInterval(bubbleId);
+        for (const b of bubbles) { this.scene.remove(b); b.geometry.dispose(); b.material.dispose(); }
+        if (z.root) z.root.rotation.z = 0;
+        if (z.alive) z.frozen = false;
+      }, 3000);
+    }
+  }
+
   stunNearby(cx, cz, radius, duration) {
     const allEnemies = [
       ...this.zombies,
